@@ -345,7 +345,7 @@ if not df.empty:
     @st.dialog("Data Preview", width="large")
     def show_data_preview(title, data_subset):
         st.write(f"Showing all {len(data_subset):,} records for: **{title}**")
-        st.dataframe(data_subset, use_container_width=True)
+        st.dataframe(data_subset, use_container_width=True, hide_index=True)
 
     # Prepare the dataset for hierarchy (Safely handle missing columns)
     hier_df = df.copy()
