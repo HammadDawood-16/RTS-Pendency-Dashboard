@@ -227,6 +227,11 @@ else:
 if not df.empty:
     # --- TOP FILTERS ---
     with st.expander("Global Filters", expanded=True):
+        universal_search = st.text_input("🔍 Universal Search", placeholder="Search for any value across all columns...", label_visibility="collapsed")
+        if universal_search:
+            mask = df.astype(str).apply(lambda col: col.str.contains(universal_search, case=False, na=False, regex=False)).any(axis=1)
+            df = df[mask]
+            
         filter_configs = [
             ("Hub Name", "current_hub"),
             ("Hub Type", "Hub Type"),
