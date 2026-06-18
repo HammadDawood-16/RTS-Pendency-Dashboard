@@ -201,7 +201,7 @@ def load_data(file_source, mtime=None):
         if isinstance(file_source, str) and file_source.startswith("http"):
             temp_file = "temp_cloud_report.xlsx"
             # gdown automatically bypasses the Google Drive large file virus warning
-            gdown.download(file_source, temp_file, quiet=True, fuzzy=True)
+            gdown.download(file_source, temp_file, quiet=True)
             df = pd.read_excel(temp_file, sheet_name="Processed Data")
         else:
             # Explicitly read the 'Processed Data' tab where the script writes the output
