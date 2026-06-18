@@ -192,7 +192,7 @@ with st.sidebar:
     elif REPORT_DOWNLOAD_URL:
         st.link_button("Download Latest Report", REPORT_DOWNLOAD_URL, help="Download from Cloud Storage")
 
-@st.cache_data
+@st.cache_data(ttl=900) # Cache expires every 15 minutes (900 seconds) to fetch fresh cloud data
 def load_data(file_source, mtime=None):
     """Loads the processed data and caches it for performance."""
     try:
