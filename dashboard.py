@@ -209,7 +209,6 @@ if os.path.exists(file_path):
 elif REPORT_DOWNLOAD_URL:
     try:
         df = load_data(REPORT_DOWNLOAD_URL)
-        st.info("☁️ Dashboard loaded from permanent cloud storage.")
     except Exception as e:
         st.error(f"Could not load data from cloud storage. Ensure the Google Drive link is correct. Error: {e}")
         df = pd.DataFrame()
