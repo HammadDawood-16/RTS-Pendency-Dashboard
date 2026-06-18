@@ -170,41 +170,27 @@ st.markdown("""
 
 st.title("📦 RTS Pendency Dashboard")
 
-uploaded_file = None # Initialize before the sidebar
-
 with st.sidebar:
-    st.header("🔐 Admin / User Access")
-    password = st.text_input("Enter Admin Password", type="password", key="admin_password")
-
-    # This safely fetches the password for deployment on Streamlit Cloud.
-    # For local testing, create a file .streamlit/secrets.toml and add:
-    # ADMIN_PASSWORD = "your_password_here"
+    # Safely get the Cloud URL
     try:
-        ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
+        REPORT_DOWNLOAD_URL = st.secrets["REPORT_DOWNLOAD_URL"]
     except (FileNotFoundError, KeyError):
-        # Fallback for local development if secrets.toml is not present
-        ADMIN_PASSWORD = "admin123"
+        REPORT_DOWNLOAD_URL = None
 
-    if password == ADMIN_PASSWORD:
-        st.success("✅ Admin Access Granted")
-        st.header("📁 Data Upload")
-        st.markdown("Upload a new `Final_ZOHO_Report.xlsx` to update the dashboard for your session.")
-        uploaded_file = st.file_uploader("Upload Report", type=["xlsx"], label_visibility="collapsed")
-    else:
-        if password: # If a password was entered but it's wrong
-            st.error("❌ Incorrect Password")
-        st.header("📊 Report Data")
-        st.markdown("Download the latest processed report file.")
-        
-        file_path = "Final_ZOHO_Report.xlsx"
-        if os.path.exists(file_path):
-            with open(file_path, "rb") as fp:
-                st.download_button(
-                    label="Download Report File",
-                    data=fp,
-                    file_name="Final_ZOHO_Report.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+    st.header("📊 Report Data")
+    st.markdown("Download the latest processed report file.")
+    
+    file_path = "Final_ZOHO_Report.xlsx"
+    if os.path.exists(file_path):
+        with open(file_path, "rb") as fp:
+            st.download_button(
+                label="Download Report File",
+                data=fp,
+                file_name="Final_ZOHO_Report.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+    elif REPORT_DOWNLOAD_URL:
+        st.link_button("Download Latest Report", REPORT_DOWNLOAD_URL, help="Download from Cloud Storage")
 
 @st.cache_data
 def load_data(file_source, mtime=None):
@@ -217,15 +203,19 @@ def load_data(file_source, mtime=None):
         st.error(f"Could not load data. Ensure the file has a 'Processed Data' sheet. Error: {e}")
         return pd.DataFrame()
 
-if uploaded_file is not None:
-    df = load_data(uploaded_file)
-else:
-    file_path = "Final_ZOHO_Report.xlsx"
-    if os.path.exists(file_path):
-        df = load_data(file_path, os.path.getmtime(file_path))
-    else:
-        st.info("👈 Please upload the 'Final_ZOHO_Report.xlsx' file in the sidebar to get started.")
+file_path = "Final_ZOHO_Report.xlsx"
+if os.path.exists(file_path):
+    df = load_data(file_path, os.path.getmtime(file_path))
+elif REPORT_DOWNLOAD_URL:
+    try:
+        df = load_data(REPORT_DOWNLOAD_URL)
+        st.info("☁️ Dashboard loaded from permanent cloud storage.")
+    except Exception as e:
+        st.error(f"Could not load data from cloud storage. Ensure the Google Drive link is correct. Error: {e}")
         df = pd.DataFrame()
+else:
+    st.info("👈 Please ensure 'Final_ZOHO_Report.xlsx' exists locally or a valid REPORT_DOWNLOAD_URL is configured in Streamlit Secrets.")
+    df = pd.DataFrame()
 
 if not df.empty:
     # --- TOP FILTERS ---
