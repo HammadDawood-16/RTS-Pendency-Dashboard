@@ -42,6 +42,37 @@ st.markdown("""
         color: #1a7b6b !important;
     }
 
+    /* Style for the main download button to make it a pill */
+    div[data-testid="stDownloadButton"] > button {
+        border-radius: 50px !important;
+        padding: 0.25rem 1rem !important;
+        font-weight: bold !important;
+        border: 2px solid #1a7b6b !important;
+        background-color: transparent !important;
+        color: #1a7b6b !important;
+    }
+    div[data-testid="stDownloadButton"] > button:hover {
+        background-color: #1a7b6b !important;
+        color: white !important;
+    }
+    /* Style for the link button fallback to look like the download button */
+    a[data-testid="stLinkButton"] {
+        border-radius: 50px !important;
+        padding: 0.25rem 1rem !important;
+        font-weight: bold !important;
+        border: 2px solid #1a7b6b !important;
+        background-color: transparent !important;
+        color: #1a7b6b !important;
+        text-decoration: none !important;
+        display: inline-block;
+        text-align: center;
+    }
+    a[data-testid="stLinkButton"]:hover {
+        background-color: #1a7b6b !important;
+        color: white !important;
+        text-decoration: none !important;
+    }
+
     /* Fix the height and breadth of the multiselect boxes and enable scrolling */
     .stMultiSelect div[data-baseweb="select"] {
         height: 85px !important;
@@ -178,20 +209,22 @@ with st.sidebar:
     except (FileNotFoundError, KeyError):
         REPORT_DOWNLOAD_URL = None
 
-    st.header("📊 Report Data")
-    st.markdown("Download the latest processed report file.")
-    
+# --- DOWNLOAD BUTTON (MOVED FROM SIDEBAR) ---
+# Create columns to align the button to the right, above the filters.
+_, btn_col = st.columns((6, 1)) # Ratio to push to the right
+with btn_col:
     file_path = "Final_ZOHO_Report.xlsx"
     if os.path.exists(file_path):
         with open(file_path, "rb") as fp:
             st.download_button(
-                label="Download Report File",
+                label=".xlsx",
                 data=fp,
                 file_name="Final_ZOHO_Report.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Download the latest processed report file."
             )
     elif REPORT_DOWNLOAD_URL:
-        st.link_button("Download Latest Report", REPORT_DOWNLOAD_URL, help="Download from Cloud Storage")
+        st.link_button(".xlsx", REPORT_DOWNLOAD_URL, help="Download report from cloud.")
 
 @st.cache_data(ttl=900) # Cache expires every 15 minutes (900 seconds) to fetch fresh cloud data
 def load_data(file_source, mtime=None):
