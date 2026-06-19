@@ -873,7 +873,7 @@ if not df.empty:
                 c1, c2, c3, c4, c5, c6, c7 = st.columns([0.15, 1.85, 1.0, 0.8, 0.8, 0.8, 1.1])
                 expand_sh = c1.checkbox(f"{sh_icon}", key=f"sh_{sh_name}")
                 with c2:
-                    if st.button(f"State Head: {sh_name}", key=f"btn_prev_sh_{sh_name}", type="tertiary"):
+                    if st.button(f"{sh_name}", key=f"btn_prev_sh_{sh_name}", type="tertiary"):
                         show_data_preview(f"State Head: {sh_name}", hier_df[hier_df['State Head'] == sh_name])
                 c3.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{sh_ship:,}</b></p>", unsafe_allow_html=True)
                 c4.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{sh_a02:,}</b></p>", unsafe_allow_html=True)
@@ -909,7 +909,7 @@ if not df.empty:
                         sc_space, sc1, sc2, sc3, sc4, sc5, sc6, sc7 = st.columns([0.1, 0.15, 1.75, 1.0, 0.8, 0.8, 0.8, 1.1])
                         expand_szm = sc1.checkbox(f"{szm_icon}", key=f"szm_{sh_name}_{szm_name}")
                         with sc2:
-                            if st.button(f"SZM: {szm_name}", key=f"btn_prev_szm_{sh_name}_{szm_name}", type="tertiary"):
+                            if st.button(f"{szm_name}", key=f"btn_prev_szm_{sh_name}_{szm_name}", type="tertiary"):
                                 show_data_preview(f"SZM: {szm_name}", sh_df[sh_df['SZM'] == szm_name])
                         sc3.markdown(f"<p style='margin: 0; padding-top: 2px;'>{szm_ship:,}</p>", unsafe_allow_html=True)
                         sc4.markdown(f"<p style='margin: 0; padding-top: 2px;'>{szm_a02:,}</p>", unsafe_allow_html=True)
@@ -1003,7 +1003,7 @@ if not df.empty:
                 c1, c2, c3, c4, c5, c6, c7 = st.columns([0.15, 1.85, 1.0, 0.8, 0.8, 0.8, 1.1])
                 expand_pod = c1.checkbox(f"{pod_icon}", key=f"pod_{pod_name}")
                 with c2:
-                    if st.button(f"POD: {pod_name}", key=f"btn_prev_pod_{pod_name}", type="tertiary"):
+                    if st.button(f"{pod_name}", key=f"btn_prev_pod_{pod_name}", type="tertiary"):
                         show_data_preview(f"POD: {pod_name}", hier_df[hier_df['POD Zone'] == pod_name])
                 c3.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{pod_ship:,}</b></p>", unsafe_allow_html=True)
                 c4.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{pod_a02:,}</b></p>", unsafe_allow_html=True)
@@ -1039,7 +1039,7 @@ if not df.empty:
                         sc_space, sc1, sc2, sc3, sc4, sc5, sc6, sc7 = st.columns([0.1, 0.15, 1.75, 1.0, 0.8, 0.8, 0.8, 1.1])
                         expand_state = sc1.checkbox(f"{state_icon}", key=f"state_{pod_name}_{state_name}")
                         with sc2:
-                            if st.button(f"LM State Head: {state_name}", key=f"btn_prev_state_{pod_name}_{state_name}", type="tertiary"):
+                            if st.button(f"{state_name}", key=f"btn_prev_state_{pod_name}_{state_name}", type="tertiary"):
                                 show_data_preview(f"LM State Head: {state_name}", pod_df[pod_df['LM State Head'] == state_name])
                         sc3.markdown(f"<p style='margin: 0; padding-top: 2px;'>{state_ship:,}</p>", unsafe_allow_html=True)
                         sc4.markdown(f"<p style='margin: 0; padding-top: 2px;'>{state_a02:,}</p>", unsafe_allow_html=True)
