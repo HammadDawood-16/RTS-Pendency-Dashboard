@@ -246,10 +246,10 @@ def load_data(file_source, mtime=None):
             temp_file = "temp_cloud_report.xlsx"
             # gdown automatically bypasses the Google Drive large file virus warning
             gdown.download(file_source, temp_file, quiet=True)
-            df = pd.read_excel(temp_file, sheet_name="Processed Data")
+            df = pd.read_excel(temp_file, sheet_name="Processed Data", engine="calamine")
         else:
             # Explicitly read the 'Processed Data' tab where the script writes the output
-            df = pd.read_excel(file_source, sheet_name="Processed Data")
+            df = pd.read_excel(file_source, sheet_name="Processed Data", engine="calamine")
         return df
     except Exception as e:
         st.error(f"Could not load data. Ensure the file has a 'Processed Data' sheet. Error: {e}")
