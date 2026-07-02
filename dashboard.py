@@ -5,6 +5,9 @@ import plotly.graph_objects as go
 import os
 import altair as alt
 import gdown
+import datetime
+import urllib.parse
+import io
 
 # Set page configuration
 st.set_page_config(page_title="RTS Pendency Dashboard", layout="wide")
@@ -42,34 +45,31 @@ st.markdown("""
         color: #1a7b6b !important;
     }
 
-    /* Style for the main download button to make it a pill */
-    div[data-testid="stDownloadButton"] > button {
+    /* Style for both download and link buttons to make them matching pills */
+    div[data-testid="stDownloadButton"] button,
+    div[data-testid="stLinkButton"] a {
         border-radius: 50px !important;
-        padding: 0.25rem 1rem !important;
+        padding: 0.5rem 1.8rem !important;
         font-weight: bold !important;
-        border: 2px solid #1a7b6b !important;
-        background-color: transparent !important;
-        color: #1a7b6b !important;
-    }
-    div[data-testid="stDownloadButton"] > button:hover {
-        background-color: #1a7b6b !important;
-        color: white !important;
-    }
-    /* Style for the link button fallback to look like the download button */
-    a[data-testid="stLinkButton"] {
-        border-radius: 50px !important;
-        padding: 0.25rem 1rem !important;
-        font-weight: bold !important;
+        font-size: 16px !important;
         border: 2px solid #1a7b6b !important;
         background-color: transparent !important;
         color: #1a7b6b !important;
         text-decoration: none !important;
-        display: inline-block;
-        text-align: center;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
     }
-    a[data-testid="stLinkButton"]:hover {
+    div[data-testid="stDownloadButton"] button:hover,
+    div[data-testid="stLinkButton"] a:hover {
         background-color: #1a7b6b !important;
         color: white !important;
+        text-decoration: none !important;
+    }
+    /* Force text/spans inside the link button to inherit matching colors */
+    div[data-testid="stLinkButton"] a * {
+        color: inherit !important;
         text-decoration: none !important;
     }
 
@@ -209,22 +209,33 @@ with st.sidebar:
     except (FileNotFoundError, KeyError):
         REPORT_DOWNLOAD_URL = None
 
-# --- DOWNLOAD BUTTON (MOVED FROM SIDEBAR) ---
-# Create columns to align the button to the right, above the filters.
-_, btn_col = st.columns((6, 1)) # Ratio to push to the right
-with btn_col:
-    file_path = "Final_ZOHO_Report.xlsx"
-    if os.path.exists(file_path):
-        with open(file_path, "rb") as fp:
-            st.download_button(
-                label=".xlsx",
-                data=fp,
-                file_name="Final_ZOHO_Report.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                help="Download the latest processed report file."
-            )
-    elif REPORT_DOWNLOAD_URL:
-        st.link_button(".xlsx", REPORT_DOWNLOAD_URL, help="Download report from cloud.")
+    # Safely get Mail To and Mail CC default values from secrets if they exist
+    try:
+        default_to = st.secrets.get("MAIL_TO", "")
+        default_cc = st.secrets.get("MAIL_CC", "")
+    except Exception:
+        default_to = ""
+        default_cc = ""
+
+    st.markdown("---")
+    st.markdown("### 📧 Mail Configuration")
+    mail_to = st.text_input(
+        "Mail To",
+        value=default_to,
+        placeholder="recipient@example.com",
+        help="Default recipient address for pre-filled compose window."
+    )
+    mail_cc = st.text_input(
+        "Mail CC",
+        value=default_cc,
+        placeholder="cc@example.com",
+        help="Default CC address for pre-filled compose window."
+    )
+
+# --- DOWNLOAD/MAIL BUTTONS CONTAINER ---
+# This container will be filled below, after filters are applied and metrics computed,
+# so the downloaded files/drafts reflect the applied global filters.
+btn_container = st.container()
 
 @st.cache_data(ttl=900) # Cache expires every 15 minutes (900 seconds) to fetch fresh cloud data
 def load_data(file_source, mtime=None):
@@ -260,11 +271,6 @@ else:
 if not df.empty:
     # --- TOP FILTERS ---
     with st.expander("Global Filters", expanded=True):
-        universal_search = st.text_input("🔍 Universal Search", placeholder="Search for any value across all columns...", label_visibility="collapsed")
-        if universal_search:
-            mask = df.astype(str).apply(lambda col: col.str.contains(universal_search, case=False, na=False, regex=False)).any(axis=1)
-            df = df[mask]
-            
         filter_configs = [
             ("Hub Name", "current_hub"),
             ("Hub Type", "Hub Type"),
@@ -275,6 +281,25 @@ if not df.empty:
             ("Picked Month", "picked_month"),
             ("HOV", "HOV")
         ]
+        
+        def reset_filters():
+            st.session_state["universal_search_input"] = ""
+            for label, _ in filter_configs:
+                state_key = f"filter_state_{label}"
+                st.session_state[state_key] = {"all": True, "items": set()}
+                keys_to_delete = [k for k in st.session_state.keys() if k.startswith(f"item_cb_{label}_") or k == f"all_cb_{label}" or k == f"search_{label}"]
+                for k in keys_to_delete:
+                    del st.session_state[k]
+                    
+        col_search, col_reset = st.columns([0.9, 0.1])
+        with col_search:
+            universal_search = st.text_input("🔍 Universal Search", placeholder="Search for any value across all columns...", label_visibility="collapsed", key="universal_search_input")
+        with col_reset:
+            st.button("🔄 Reset", on_click=reset_filters, use_container_width=True)
+
+        if universal_search:
+            mask = df.astype(str).apply(lambda col: col.str.contains(universal_search, case=False, na=False, regex=False)).any(axis=1)
+            df = df[mask]
         
         # Distribute the 8 filters cleanly across 8 columns (side by side)
         cols = st.columns(8)
@@ -385,6 +410,53 @@ if not df.empty:
         st.write(f"Showing all {len(data_subset):,} records for: **{title}**")
         st.dataframe(data_subset, use_container_width=True, hide_index=True)
 
+    # Cached generator for Excel file from filtered dataframe to prevent heavy recalculations on rerun
+    @st.cache_data(show_spinner="Preparing Excel file...", hash_funcs={pd.DataFrame: lambda d: (d.shape, d.iloc[0, 0] if len(d) > 0 else None, d.iloc[-1, 0] if len(d) > 0 else None)})
+    def generate_excel(dataframe):
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            dataframe.to_excel(writer, index=False, sheet_name='Processed Data')
+        return buffer.getvalue()
+
+    # Populate the buttons container defined at the top
+    with btn_container:
+        _, btn_col1, btn_col2 = st.columns((14, 1, 1))
+        with btn_col1:
+            excel_data = generate_excel(df)
+            st.download_button(
+                label=".xlsx",
+                data=excel_data,
+                file_name="Final_ZOHO_Report.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Download the filtered report file as Excel."
+            )
+        with btn_col2:
+            # Construct pre-filled Gmail Compose URL parameters
+            subject = f"RTS Pendency Report - {datetime.date.today().strftime('%d-%b-%Y')}"
+            body_text = f"""Hello team,
+
+Here is the RTS Pendency overview summary based on the applied global filters:
+
+- Total Shipments: {total_shipments:,}
+- Debit Value: {format_indian_currency(total_debit)}
+- Overall HOV (1k+): {hov_count:,}
+- 5+ Ageing: {ageing_5_plus:,}
+
+Please find the detailed dataset attached. (Note: Please download the Excel file using the '.xlsx' button on the dashboard and attach it to this email.)
+
+Best regards,
+RTS Operations Team"""
+            
+            compose_url = f"https://mail.google.com/mail/?view=cm&fs=1&to={urllib.parse.quote(mail_to)}&cc={urllib.parse.quote(mail_cc)}&su={urllib.parse.quote(subject)}&body={urllib.parse.quote(body_text)}"
+            
+            st.link_button(
+                label="Mail",
+                url=compose_url,
+                help="Draft an email in Gmail with prefilled To, CC, and overview summary text."
+            )
+
+
+
     # Prepare the dataset for hierarchy (Safely handle missing columns)
     hier_df = df.copy()
     hier_df['State Head'] = hier_df.get('State Head', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
@@ -411,6 +483,9 @@ if not df.empty:
     hier_df['Ageing_5_plus'] = (hier_df['Ageing Numeric'] > 5).astype(int)
     hier_df['Debit_5_plus'] = hier_df['Ageing_5_plus'] * hier_df['Debit Value Numeric']
     
+    def get_sort_label(val_str, col, cur_col, cur_asc):
+        return val_str
+
     # --- TABS ---
     tab_overview, tab_shszmpod, tab_hubs = st.tabs(["Overview", "State Head/SZM/POD", "Hubs"])
     
@@ -580,6 +655,7 @@ if not df.empty:
                 
                 text = base_bar.mark_text(align='left', baseline='middle', dx=5, fontWeight='bold').encode(
                     text='Count:Q',
+                    color=alt.Color('Bucket:N', legend=None),
                     opacity=alt.condition(click_sel_bar, alt.value(1.0), alt.value(0.3))
                 )
                 
@@ -653,6 +729,7 @@ if not df.empty:
             
             text = base_line.mark_text(align='center', baseline='bottom', dy=-15, fontWeight='bold').encode(
                 text='Count:Q',
+                color=alt.value('#1f77b4'),
                 opacity=alt.condition(click_sel_line, alt.value(1.0), alt.value(0.3))
             )
             
@@ -704,8 +781,6 @@ if not df.empty:
             f_head1, f_head2, f_head3, f_head4, f_head5, f_head6 = st.columns([2.0, 1.0, 0.8, 0.8, 0.8, 1.1])
             
             def flag_sort_icon(col):
-                if st.session_state.flag_sort_col == col:
-                    return " ↑" if st.session_state.flag_sort_asc else " ↓"
                 return ""
     
             with f_head1:
@@ -855,14 +930,62 @@ if not df.empty:
             else:
                 st.session_state.pod_sort_col = col
                 st.session_state.pod_sort_asc = False if col != 'POD' else True
+
+        # --- SH LEVEL 2 & 3 SORTING STATES ---
+        if "sh_lvl2_sort_col" not in st.session_state:
+            st.session_state.sh_lvl2_sort_col = "Shipments"
+        if "sh_lvl2_sort_asc" not in st.session_state:
+            st.session_state.sh_lvl2_sort_asc = False
+            
+        def toggle_sh_lvl2_sort(col):
+            if st.session_state.sh_lvl2_sort_col == col:
+                st.session_state.sh_lvl2_sort_asc = not st.session_state.sh_lvl2_sort_asc
+            else:
+                st.session_state.sh_lvl2_sort_col = col
+                st.session_state.sh_lvl2_sort_asc = False
+
+        if "sh_lvl2_hub_sort_col" not in st.session_state:
+            st.session_state.sh_lvl2_hub_sort_col = "Shipments"
+        if "sh_lvl2_hub_sort_asc" not in st.session_state:
+            st.session_state.sh_lvl2_hub_sort_asc = False
+            
+        def toggle_sh_lvl2_hub_sort(col):
+            if st.session_state.sh_lvl2_hub_sort_col == col:
+                st.session_state.sh_lvl2_hub_sort_asc = not st.session_state.sh_lvl2_hub_sort_asc
+            else:
+                st.session_state.sh_lvl2_hub_sort_col = col
+                st.session_state.sh_lvl2_hub_sort_asc = False
+
+        # --- POD LEVEL 2 & 3 SORTING STATES ---
+        if "pod_lvl2_sort_col" not in st.session_state:
+            st.session_state.pod_lvl2_sort_col = "Shipments"
+        if "pod_lvl2_sort_asc" not in st.session_state:
+            st.session_state.pod_lvl2_sort_asc = False
+            
+        def toggle_pod_lvl2_sort(col):
+            if st.session_state.pod_lvl2_sort_col == col:
+                st.session_state.pod_lvl2_sort_asc = not st.session_state.pod_lvl2_sort_asc
+            else:
+                st.session_state.pod_lvl2_sort_col = col
+                st.session_state.pod_lvl2_sort_asc = False
+
+        if "pod_lvl2_hub_sort_col" not in st.session_state:
+            st.session_state.pod_lvl2_hub_sort_col = "Shipments"
+        if "pod_lvl2_hub_sort_asc" not in st.session_state:
+            st.session_state.pod_lvl2_hub_sort_asc = False
+            
+        def toggle_pod_lvl2_hub_sort(col):
+            if st.session_state.pod_lvl2_hub_sort_col == col:
+                st.session_state.pod_lvl2_hub_sort_asc = not st.session_state.pod_lvl2_hub_sort_asc
+            else:
+                st.session_state.pod_lvl2_hub_sort_col = col
+                st.session_state.pod_lvl2_hub_sort_asc = False
         
         with st.container(border=True):
             # --- TABLE HEADER ---
             head1, head2, head3, head4, head5, head6 = st.columns([2.0, 1.0, 0.8, 0.8, 0.8, 1.1])
             
             def sort_icon(col):
-                if st.session_state.sh_sort_col == col:
-                    return " ↑" if st.session_state.sh_sort_asc else " ↓"
                 return ""
     
             with head1:
@@ -908,11 +1031,16 @@ if not df.empty:
                 with c2:
                     if st.button(f"{sh_name}", key=f"btn_prev_sh_{sh_name}", type="tertiary"):
                         show_data_preview(f"State Head: {sh_name}", hier_df[hier_df['State Head'] == sh_name])
-                c3.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{sh_ship:,}</b></p>", unsafe_allow_html=True)
-                c4.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{sh_a02:,}</b></p>", unsafe_allow_html=True)
-                c5.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{sh_a35:,}</b></p>", unsafe_allow_html=True)
-                c6.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{sh_a5p:,}</b></p>", unsafe_allow_html=True)
-                c7.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{format_indian_currency(sh_d5p)}</b></p>", unsafe_allow_html=True)
+                with c3:
+                    st.button(get_sort_label(f"{sh_ship:,}", 'Shipments', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_ship_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Shipments',))
+                with c4:
+                    st.button(get_sort_label(f"{sh_a02:,}", 'Ageing_0_2', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_a02_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Ageing_0_2',))
+                with c5:
+                    st.button(get_sort_label(f"{sh_a35:,}", 'Ageing_3_5', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_a35_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Ageing_3_5',))
+                with c6:
+                    st.button(get_sort_label(f"{sh_a5p:,}", 'Ageing_5_plus', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_a5p_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Ageing_5_plus',))
+                with c7:
+                    st.button(get_sort_label(f"{format_indian_currency(sh_d5p)}", 'Debit_5_plus', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_d5p_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Debit_5_plus',))
                 
                 if expand_sh:
                     sh_df = hier_df[hier_df['State Head'] == sh_name]
@@ -925,7 +1053,7 @@ if not df.empty:
                         Ageing_5_plus=('Ageing_5_plus', 'sum'),
                         Debit_5_plus=('Debit_5_plus', 'sum')
                     ).reset_index()
-                    szm_groups = szm_groups.sort_values('Shipments', ascending=False)
+                    szm_groups = szm_groups.sort_values(st.session_state.sh_lvl2_sort_col, ascending=st.session_state.sh_lvl2_sort_asc)
                     
                     for _, szm_row in szm_groups.iterrows():
                         szm_name = szm_row['SZM']
@@ -944,11 +1072,16 @@ if not df.empty:
                         with sc2:
                             if st.button(f"{szm_name}", key=f"btn_prev_szm_{sh_name}_{szm_name}", type="tertiary"):
                                 show_data_preview(f"SZM: {szm_name}", sh_df[sh_df['SZM'] == szm_name])
-                        sc3.markdown(f"<p style='margin: 0; padding-top: 2px;'>{szm_ship:,}</p>", unsafe_allow_html=True)
-                        sc4.markdown(f"<p style='margin: 0; padding-top: 2px;'>{szm_a02:,}</p>", unsafe_allow_html=True)
-                        sc5.markdown(f"<p style='margin: 0; padding-top: 2px;'>{szm_a35:,}</p>", unsafe_allow_html=True)
-                        sc6.markdown(f"<p style='margin: 0; padding-top: 2px;'>{szm_a5p:,}</p>", unsafe_allow_html=True)
-                        sc7.markdown(f"<p style='margin: 0; padding-top: 2px;'>{format_indian_currency(szm_d5p)}</p>", unsafe_allow_html=True)
+                        with sc3:
+                            st.button(get_sort_label(f"{szm_ship:,}", 'Shipments', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_ship_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Shipments',))
+                        with sc4:
+                            st.button(get_sort_label(f"{szm_a02:,}", 'Ageing_0_2', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_a02_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_0_2',))
+                        with sc5:
+                            st.button(get_sort_label(f"{szm_a35:,}", 'Ageing_3_5', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_a35_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_3_5',))
+                        with sc6:
+                            st.button(get_sort_label(f"{szm_a5p:,}", 'Ageing_5_plus', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_a5p_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_5_plus',))
+                        with sc7:
+                            st.button(get_sort_label(f"{format_indian_currency(szm_d5p)}", 'Debit_5_plus', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_d5p_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Debit_5_plus',))
                         
                         if expand_szm:
                             szm_df = sh_df[sh_df['SZM'] == szm_name]
@@ -961,7 +1094,7 @@ if not df.empty:
                                 Ageing_5_plus=('Ageing_5_plus', 'sum'),
                                 Debit_5_plus=('Debit_5_plus', 'sum')
                             ).reset_index()
-                            hub_groups = hub_groups.sort_values('Shipments', ascending=False)
+                            hub_groups = hub_groups.sort_values(st.session_state.sh_lvl2_hub_sort_col, ascending=st.session_state.sh_lvl2_hub_sort_asc)
                             
                             for _, hub_row in hub_groups.iterrows():
                                 hub_name = hub_row['current_hub']
@@ -976,11 +1109,16 @@ if not df.empty:
                                     if st.button(f"{hub_name}", key=f"btn_hub_{sh_name}_{szm_name}_{hub_name}", type="tertiary"):
                                         show_data_preview(f"{hub_name}", szm_df[szm_df['current_hub'] == hub_name])
                                 
-                                hc2.markdown(f"<p style='margin: 0; padding-top: 2px;'>{h_ship:,}</p>", unsafe_allow_html=True)
-                                hc3.markdown(f"<p style='margin: 0; padding-top: 2px;'>{h_a02:,}</p>", unsafe_allow_html=True)
-                                hc4.markdown(f"<p style='margin: 0; padding-top: 2px;'>{h_a35:,}</p>", unsafe_allow_html=True)
-                                hc5.markdown(f"<p style='margin: 0; padding-top: 2px;'>{h_a5p:,}</p>", unsafe_allow_html=True)
-                                hc6.markdown(f"<p style='margin: 0; padding-top: 2px;'>{format_indian_currency(h_d5p)}</p>", unsafe_allow_html=True)
+                                with hc2:
+                                    st.button(f"{h_ship:,}", key=f"btn_hub_lvl3_ship_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Shipments',))
+                                with hc3:
+                                    st.button(f"{h_a02:,}", key=f"btn_hub_lvl3_a02_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_0_2',))
+                                with hc4:
+                                    st.button(f"{h_a35:,}", key=f"btn_hub_lvl3_a35_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_3_5',))
+                                with hc5:
+                                    st.button(f"{h_a5p:,}", key=f"btn_hub_lvl3_a5p_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_5_plus',))
+                                with hc6:
+                                    st.button(f"{format_indian_currency(h_d5p)}", key=f"btn_hub_lvl3_d5p_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Debit_5_plus',))
                 st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
             
         st.markdown("<br>", unsafe_allow_html=True)
@@ -991,8 +1129,6 @@ if not df.empty:
             p_head1, p_head2, p_head3, p_head4, p_head5, p_head6 = st.columns([2.0, 1.0, 0.8, 0.8, 0.8, 1.1])
             
             def pod_sort_icon(col):
-                if st.session_state.pod_sort_col == col:
-                    return " ↑" if st.session_state.pod_sort_asc else " ↓"
                 return ""
     
             with p_head1:
@@ -1038,11 +1174,16 @@ if not df.empty:
                 with c2:
                     if st.button(f"{pod_name}", key=f"btn_prev_pod_{pod_name}", type="tertiary"):
                         show_data_preview(f"POD: {pod_name}", hier_df[hier_df['POD Zone'] == pod_name])
-                c3.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{pod_ship:,}</b></p>", unsafe_allow_html=True)
-                c4.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{pod_a02:,}</b></p>", unsafe_allow_html=True)
-                c5.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{pod_a35:,}</b></p>", unsafe_allow_html=True)
-                c6.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{pod_a5p:,}</b></p>", unsafe_allow_html=True)
-                c7.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{format_indian_currency(pod_d5p)}</b></p>", unsafe_allow_html=True)
+                with c3:
+                    st.button(get_sort_label(f"{pod_ship:,}", 'Shipments', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_ship_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Shipments',))
+                with c4:
+                    st.button(get_sort_label(f"{pod_a02:,}", 'Ageing_0_2', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_a02_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Ageing_0_2',))
+                with c5:
+                    st.button(get_sort_label(f"{pod_a35:,}", 'Ageing_3_5', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_a35_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Ageing_3_5',))
+                with c6:
+                    st.button(get_sort_label(f"{pod_a5p:,}", 'Ageing_5_plus', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_a5p_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Ageing_5_plus',))
+                with c7:
+                    st.button(get_sort_label(f"{format_indian_currency(pod_d5p)}", 'Debit_5_plus', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_d5p_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Debit_5_plus',))
                 
                 if expand_pod:
                     pod_df = hier_df[hier_df['POD Zone'] == pod_name]
@@ -1055,7 +1196,7 @@ if not df.empty:
                         Ageing_5_plus=('Ageing_5_plus', 'sum'),
                         Debit_5_plus=('Debit_5_plus', 'sum')
                     ).reset_index()
-                    state_groups = state_groups.sort_values('Shipments', ascending=False)
+                    state_groups = state_groups.sort_values(st.session_state.pod_lvl2_sort_col, ascending=st.session_state.pod_lvl2_sort_asc)
                     
                     for _, state_row in state_groups.iterrows():
                         state_name = state_row['LM State Head']
@@ -1074,11 +1215,16 @@ if not df.empty:
                         with sc2:
                             if st.button(f"{state_name}", key=f"btn_prev_state_{pod_name}_{state_name}", type="tertiary"):
                                 show_data_preview(f"LM State Head: {state_name}", pod_df[pod_df['LM State Head'] == state_name])
-                        sc3.markdown(f"<p style='margin: 0; padding-top: 2px;'>{state_ship:,}</p>", unsafe_allow_html=True)
-                        sc4.markdown(f"<p style='margin: 0; padding-top: 2px;'>{state_a02:,}</p>", unsafe_allow_html=True)
-                        sc5.markdown(f"<p style='margin: 0; padding-top: 2px;'>{state_a35:,}</p>", unsafe_allow_html=True)
-                        sc6.markdown(f"<p style='margin: 0; padding-top: 2px;'>{state_a5p:,}</p>", unsafe_allow_html=True)
-                        sc7.markdown(f"<p style='margin: 0; padding-top: 2px;'>{format_indian_currency(state_d5p)}</p>", unsafe_allow_html=True)
+                        with sc3:
+                            st.button(get_sort_label(f"{state_ship:,}", 'Shipments', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_ship_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Shipments',))
+                        with sc4:
+                            st.button(get_sort_label(f"{state_a02:,}", 'Ageing_0_2', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_a02_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_0_2',))
+                        with sc5:
+                            st.button(get_sort_label(f"{state_a35:,}", 'Ageing_3_5', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_a35_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_3_5',))
+                        with sc6:
+                            st.button(get_sort_label(f"{state_a5p:,}", 'Ageing_5_plus', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_a5p_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_5_plus',))
+                        with sc7:
+                            st.button(get_sort_label(f"{format_indian_currency(state_d5p)}", 'Debit_5_plus', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_d5p_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Debit_5_plus',))
                         
                         if expand_state:
                             state_df = pod_df[pod_df['LM State Head'] == state_name]
@@ -1091,7 +1237,7 @@ if not df.empty:
                                 Ageing_5_plus=('Ageing_5_plus', 'sum'),
                                 Debit_5_plus=('Debit_5_plus', 'sum')
                             ).reset_index()
-                            hub_groups = hub_groups.sort_values('Shipments', ascending=False)
+                            hub_groups = hub_groups.sort_values(st.session_state.pod_lvl2_hub_sort_col, ascending=st.session_state.pod_lvl2_hub_sort_asc)
                             
                             for _, hub_row in hub_groups.iterrows():
                                 hub_name = hub_row['current_hub']
@@ -1106,11 +1252,16 @@ if not df.empty:
                                     if st.button(f"{hub_name}", key=f"btn_hub_pod_{pod_name}_{state_name}_{hub_name}", type="tertiary"):
                                         show_data_preview(f"{hub_name}", state_df[state_df['current_hub'] == hub_name])
                                 
-                                hc2.markdown(f"<p style='margin: 0; padding-top: 2px;'>{h_ship:,}</p>", unsafe_allow_html=True)
-                                hc3.markdown(f"<p style='margin: 0; padding-top: 2px;'>{h_a02:,}</p>", unsafe_allow_html=True)
-                                hc4.markdown(f"<p style='margin: 0; padding-top: 2px;'>{h_a35:,}</p>", unsafe_allow_html=True)
-                                hc5.markdown(f"<p style='margin: 0; padding-top: 2px;'>{h_a5p:,}</p>", unsafe_allow_html=True)
-                                hc6.markdown(f"<p style='margin: 0; padding-top: 2px;'>{format_indian_currency(h_d5p)}</p>", unsafe_allow_html=True)
+                                with hc2:
+                                    st.button(f"{h_ship:,}", key=f"btn_state_lvl3_ship_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Shipments',))
+                                with hc3:
+                                    st.button(f"{h_a02:,}", key=f"btn_state_lvl3_a02_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_0_2',))
+                                with hc4:
+                                    st.button(f"{h_a35:,}", key=f"btn_state_lvl3_a35_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_3_5',))
+                                with hc5:
+                                    st.button(f"{h_a5p:,}", key=f"btn_state_lvl3_a5p_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_5_plus',))
+                                with hc6:
+                                    st.button(f"{format_indian_currency(h_d5p)}", key=f"btn_state_lvl3_d5p_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Debit_5_plus',))
                 st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
 
     with tab_hubs:
@@ -1128,14 +1279,25 @@ if not df.empty:
             else:
                 st.session_state.hub_sort_col = col
                 st.session_state.hub_sort_asc = False if col != 'Hub Type' else True
+
+        # --- HUB LEVEL 2 SORTING STATES ---
+        if "hub_lvl2_sort_col" not in st.session_state:
+            st.session_state.hub_lvl2_sort_col = "Shipments"
+        if "hub_lvl2_sort_asc" not in st.session_state:
+            st.session_state.hub_lvl2_sort_asc = False
+            
+        def toggle_hub_lvl2_sort(col):
+            if st.session_state.hub_lvl2_sort_col == col:
+                st.session_state.hub_lvl2_sort_asc = not st.session_state.hub_lvl2_sort_asc
+            else:
+                st.session_state.hub_lvl2_sort_col = col
+                st.session_state.hub_lvl2_sort_asc = False
         
         with st.container(border=True):
             # --- TABLE HEADER ---
             h_head1, h_head_sh, h_head2, h_head3, h_head4, h_head5, h_head6 = st.columns([1.2, 0.8, 1.0, 0.8, 0.8, 0.8, 1.1])
             
             def hub_sort_icon(col):
-                if st.session_state.hub_sort_col == col:
-                    return " ↑" if st.session_state.hub_sort_asc else " ↓"
                 return ""
     
             with h_head1:
@@ -1183,11 +1345,16 @@ if not df.empty:
                 with c2:
                     if st.button(f"{ht_name}", key=f"btn_prev_ht_{ht_name}", type="tertiary"):
                         show_data_preview(f"{ht_name}", hier_df[hier_df['Hub Type'] == ht_name])
-                c3.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{ht_ship:,}</b></p>", unsafe_allow_html=True)
-                c4.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{ht_a02:,}</b></p>", unsafe_allow_html=True)
-                c5.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{ht_a35:,}</b></p>", unsafe_allow_html=True)
-                c6.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{ht_a5p:,}</b></p>", unsafe_allow_html=True)
-                c7.markdown(f"<p style='margin: 0; padding-top: 2px;'><b>{format_indian_currency(ht_d5p)}</b></p>", unsafe_allow_html=True)
+                with c3:
+                    st.button(get_sort_label(f"{ht_ship:,}", 'Shipments', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_ship_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Shipments',))
+                with c4:
+                    st.button(get_sort_label(f"{ht_a02:,}", 'Ageing_0_2', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_a02_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_0_2',))
+                with c5:
+                    st.button(get_sort_label(f"{ht_a35:,}", 'Ageing_3_5', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_a35_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_3_5',))
+                with c6:
+                    st.button(get_sort_label(f"{ht_a5p:,}", 'Ageing_5_plus', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_a5p_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_5_plus',))
+                with c7:
+                    st.button(get_sort_label(f"{format_indian_currency(ht_d5p)}", 'Debit_5_plus', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_d5p_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Debit_5_plus',))
                 
                 if expand_ht:
                     ht_df = hier_df[hier_df['Hub Type'] == ht_name]
@@ -1200,7 +1367,7 @@ if not df.empty:
                         Ageing_5_plus=('Ageing_5_plus', 'sum'),
                         Debit_5_plus=('Debit_5_plus', 'sum')
                     ).reset_index()
-                    hub_sh_groups = hub_sh_groups.sort_values('Shipments', ascending=False)
+                    hub_sh_groups = hub_sh_groups.sort_values(st.session_state.hub_lvl2_sort_col, ascending=st.session_state.hub_lvl2_sort_asc)
                     
                     for _, hsh_row in hub_sh_groups.iterrows():
                         hsh_hub = hsh_row['current_hub']
@@ -1219,10 +1386,15 @@ if not df.empty:
                         
                         hc_am.markdown(f"<p style='margin: 0; padding-top: 2px;'>{hsh_sh}</p>", unsafe_allow_html=True)
                         
-                        hc2.markdown(f"<p style='margin: 0; padding-top: 2px;'>{hsh_ship:,}</p>", unsafe_allow_html=True)
-                        hc3.markdown(f"<p style='margin: 0; padding-top: 2px;'>{hsh_a02:,}</p>", unsafe_allow_html=True)
-                        hc4.markdown(f"<p style='margin: 0; padding-top: 2px;'>{hsh_a35:,}</p>", unsafe_allow_html=True)
-                        hc5.markdown(f"<p style='margin: 0; padding-top: 2px;'>{hsh_a5p:,}</p>", unsafe_allow_html=True)
-                        hc6.markdown(f"<p style='margin: 0; padding-top: 2px;'>{format_indian_currency(hsh_d5p)}</p>", unsafe_allow_html=True)
+                        with hc2:
+                            st.button(f"{hsh_ship:,}", key=f"btn_hub_lvl2_ship_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Shipments',))
+                        with hc3:
+                            st.button(f"{hsh_a02:,}", key=f"btn_hub_lvl2_a02_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_0_2',))
+                        with hc4:
+                            st.button(f"{hsh_a35:,}", key=f"btn_hub_lvl2_a35_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_3_5',))
+                        with hc5:
+                            st.button(f"{hsh_a5p:,}", key=f"btn_hub_lvl2_a5p_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_5_plus',))
+                        with hc6:
+                            st.button(f"{format_indian_currency(hsh_d5p)}", key=f"btn_hub_lvl2_d5p_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Debit_5_plus',))
                 st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
         
