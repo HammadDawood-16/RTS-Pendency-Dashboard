@@ -201,7 +201,7 @@ st.markdown("""
     /* Custom dynamic max-height container */
     div.element-container:has(.scrollable-table-marker) + div.element-container > div[data-testid="stVerticalBlock"] {
         max-height: 600px;
-        overflow-y: auto;
+        overflow-y: scroll;
         overflow-x: hidden;
     }
     </style>
