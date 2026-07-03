@@ -257,6 +257,11 @@ def load_data(file_source, mtime=None):
         else:
             # Explicitly read the 'Processed Data' tab where the script writes the output
             df = pd.read_excel(file_source, sheet_name="Processed Data", engine="calamine")
+            
+        # Ensure PyArrow compatibility by converting mixed-type object columns to strings
+        for col in df.select_dtypes(include=['object']).columns:
+            df[col] = df[col].astype(str)
+            
         return df
     except Exception as e:
         st.error(f"Could not load data. Ensure the file has a 'Processed Data' sheet. Error: {e}")
