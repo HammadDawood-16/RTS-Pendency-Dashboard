@@ -197,6 +197,30 @@ st.markdown("""
     div[data-testid="stTabs"] div[data-testid="stCheckbox"] label > span:not(:has(p)) {
         display: none !important;
     }
+    /* STICKY GROUP HEADERS (Level 1 and Level 2) */
+    div.element-container:has(.sticky-lvl1),
+    div.element-container:has(.sticky-lvl2) {
+        position: sticky;
+        z-index: 10;
+    }
+    div.element-container:has(.sticky-lvl1) {
+        top: 0px;
+    }
+    div.element-container:has(.sticky-lvl2) {
+        top: 45px; /* Sits exactly below Level 1 row */
+        z-index: 9;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.sticky-lvl1),
+    div[data-testid="stHorizontalBlock"]:has(.sticky-lvl2) {
+        background: rgba(128, 128, 128, 0.15);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(128, 128, 128, 0.3);
+        margin-bottom: 0 !important;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        border-radius: 4px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -1002,129 +1026,134 @@ RTS Operations Team"""
                 st.button(f"💸 5+ Debit{sort_icon('Debit_5_plus')}", on_click=toggle_sh_sort, args=('Debit_5_plus',), key="sort_sh_d5p", type="tertiary")
             st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
             
-            # Group Level 1: State Head
-            sh_groups = hier_df.groupby('State Head').agg(
-                Shipments=('State Head', 'count'),
-                Ageing_0_2=('Ageing_0_2', 'sum'),
-                Ageing_3_5=('Ageing_3_5', 'sum'),
-                Ageing_5_plus=('Ageing_5_plus', 'sum'),
-                Debit_5_plus=('Debit_5_plus', 'sum')
-            ).reset_index()
+            with st.container(height=500, border=False):
+                # Group Level 1: State Head
+                sh_groups = hier_df.groupby('State Head').agg(
+                    Shipments=('State Head', 'count'),
+                    Ageing_0_2=('Ageing_0_2', 'sum'),
+                    Ageing_3_5=('Ageing_3_5', 'sum'),
+                    Ageing_5_plus=('Ageing_5_plus', 'sum'),
+                    Debit_5_plus=('Debit_5_plus', 'sum')
+                ).reset_index()
             
-            # Apply sorting based on session state
-            sh_groups = sh_groups.sort_values(st.session_state.sh_sort_col, ascending=st.session_state.sh_sort_asc)
+                # Apply sorting based on session state
+                sh_groups = sh_groups.sort_values(st.session_state.sh_sort_col, ascending=st.session_state.sh_sort_asc)
             
-            for _, sh_row in sh_groups.iterrows():
-                sh_name = sh_row['State Head']
-                sh_ship = sh_row['Shipments']
-                sh_a02 = sh_row['Ageing_0_2']
-                sh_a35 = sh_row['Ageing_3_5']
-                sh_a5p = sh_row['Ageing_5_plus']
-                sh_d5p = sh_row['Debit_5_plus']
-                
-                sh_expanded = st.session_state.get(f"sh_{sh_name}", False)
-                sh_icon = "▼" if sh_expanded else "▶"
-                
-                # Custom Table Row: State Head
-                c1, c2, c3, c4, c5, c6, c7 = st.columns([0.15, 1.85, 1.0, 0.8, 0.8, 0.8, 1.1])
-                expand_sh = c1.checkbox(f"{sh_icon}", key=f"sh_{sh_name}")
-                with c2:
-                    if st.button(f"{sh_name}", key=f"btn_prev_sh_{sh_name}", type="tertiary"):
-                        show_data_preview(f"State Head: {sh_name}", hier_df[hier_df['State Head'] == sh_name])
-                with c3:
-                    st.button(get_sort_label(f"{sh_ship:,}", 'Shipments', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_ship_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Shipments',))
-                with c4:
-                    st.button(get_sort_label(f"{sh_a02:,}", 'Ageing_0_2', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_a02_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Ageing_0_2',))
-                with c5:
-                    st.button(get_sort_label(f"{sh_a35:,}", 'Ageing_3_5', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_a35_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Ageing_3_5',))
-                with c6:
-                    st.button(get_sort_label(f"{sh_a5p:,}", 'Ageing_5_plus', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_a5p_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Ageing_5_plus',))
-                with c7:
-                    st.button(get_sort_label(f"{format_indian_currency(sh_d5p)}", 'Debit_5_plus', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_d5p_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Debit_5_plus',))
-                
-                if expand_sh:
-                    sh_df = hier_df[hier_df['State Head'] == sh_name]
+                for _, sh_row in sh_groups.iterrows():
+                    with st.container(border=False):
+                        sh_name = sh_row['State Head']
+                        sh_ship = sh_row['Shipments']
+                        sh_a02 = sh_row['Ageing_0_2']
+                        sh_a35 = sh_row['Ageing_3_5']
+                        sh_a5p = sh_row['Ageing_5_plus']
+                        sh_d5p = sh_row['Debit_5_plus']
                     
-                    # Group Level 2: SZM
-                    szm_groups = sh_df.groupby('SZM').agg(
-                        Shipments=('SZM', 'count'),
-                        Ageing_0_2=('Ageing_0_2', 'sum'),
-                        Ageing_3_5=('Ageing_3_5', 'sum'),
-                        Ageing_5_plus=('Ageing_5_plus', 'sum'),
-                        Debit_5_plus=('Debit_5_plus', 'sum')
-                    ).reset_index()
-                    szm_groups = szm_groups.sort_values(st.session_state.sh_lvl2_sort_col, ascending=st.session_state.sh_lvl2_sort_asc)
+                        sh_expanded = st.session_state.get(f"sh_{sh_name}", False)
+                        sh_icon = "▼" if sh_expanded else "▶"
                     
-                    for _, szm_row in szm_groups.iterrows():
-                        szm_name = szm_row['SZM']
-                        szm_ship = szm_row['Shipments']
-                        szm_a02 = szm_row['Ageing_0_2']
-                        szm_a35 = szm_row['Ageing_3_5']
-                        szm_a5p = szm_row['Ageing_5_plus']
-                        szm_d5p = szm_row['Debit_5_plus']
+                        # Custom Table Row: State Head
+                        c1, c2, c3, c4, c5, c6, c7 = st.columns([0.15, 1.85, 1.0, 0.8, 0.8, 0.8, 1.1])
+                        c1.markdown("<span class='sticky-lvl1'></span>", unsafe_allow_html=True)
+                        expand_sh = c1.checkbox(f"{sh_icon}", key=f"sh_{sh_name}")
+                        with c2:
+                            if st.button(f"{sh_name}", key=f"btn_prev_sh_{sh_name}", type="tertiary"):
+                                show_data_preview(f"State Head: {sh_name}", hier_df[hier_df['State Head'] == sh_name])
+                        with c3:
+                            st.button(get_sort_label(f"{sh_ship:,}", 'Shipments', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_ship_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Shipments',))
+                        with c4:
+                            st.button(get_sort_label(f"{sh_a02:,}", 'Ageing_0_2', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_a02_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Ageing_0_2',))
+                        with c5:
+                            st.button(get_sort_label(f"{sh_a35:,}", 'Ageing_3_5', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_a35_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Ageing_3_5',))
+                        with c6:
+                            st.button(get_sort_label(f"{sh_a5p:,}", 'Ageing_5_plus', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_a5p_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Ageing_5_plus',))
+                        with c7:
+                            st.button(get_sort_label(f"{format_indian_currency(sh_d5p)}", 'Debit_5_plus', st.session_state.sh_lvl2_sort_col, st.session_state.sh_lvl2_sort_asc), key=f"btn_sh_lvl2_d5p_{sh_name}", type="tertiary", on_click=toggle_sh_lvl2_sort, args=('Debit_5_plus',))
+                    
+                        if expand_sh:
+                            sh_df = hier_df[hier_df['State Head'] == sh_name]
                         
-                        szm_expanded = st.session_state.get(f"szm_{sh_name}_{szm_name}", False)
-                        szm_icon = "▼" if szm_expanded else "▶"
-                        
-                        # Custom Table Row: SZM (Indented visually)
-                        sc_space, sc1, sc2, sc3, sc4, sc5, sc6, sc7 = st.columns([0.1, 0.15, 1.75, 1.0, 0.8, 0.8, 0.8, 1.1])
-                        expand_szm = sc1.checkbox(f"{szm_icon}", key=f"szm_{sh_name}_{szm_name}")
-                        with sc2:
-                            if st.button(f"{szm_name}", key=f"btn_prev_szm_{sh_name}_{szm_name}", type="tertiary"):
-                                show_data_preview(f"SZM: {szm_name}", sh_df[sh_df['SZM'] == szm_name])
-                        with sc3:
-                            st.button(get_sort_label(f"{szm_ship:,}", 'Shipments', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_ship_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Shipments',))
-                        with sc4:
-                            st.button(get_sort_label(f"{szm_a02:,}", 'Ageing_0_2', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_a02_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_0_2',))
-                        with sc5:
-                            st.button(get_sort_label(f"{szm_a35:,}", 'Ageing_3_5', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_a35_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_3_5',))
-                        with sc6:
-                            st.button(get_sort_label(f"{szm_a5p:,}", 'Ageing_5_plus', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_a5p_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_5_plus',))
-                        with sc7:
-                            st.button(get_sort_label(f"{format_indian_currency(szm_d5p)}", 'Debit_5_plus', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_d5p_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Debit_5_plus',))
-                        
-                        if expand_szm:
-                            szm_df = sh_df[sh_df['SZM'] == szm_name]
-                            
-                            # Group Level 3: Hub (Displayed as clickable text rows)
-                            hub_groups = szm_df.groupby('current_hub').agg(
-                                Shipments=('current_hub', 'count'),
+                            # Group Level 2: SZM
+                            szm_groups = sh_df.groupby('SZM').agg(
+                                Shipments=('SZM', 'count'),
                                 Ageing_0_2=('Ageing_0_2', 'sum'),
                                 Ageing_3_5=('Ageing_3_5', 'sum'),
                                 Ageing_5_plus=('Ageing_5_plus', 'sum'),
                                 Debit_5_plus=('Debit_5_plus', 'sum')
                             ).reset_index()
-                            hub_groups = hub_groups.sort_values(st.session_state.sh_lvl2_hub_sort_col, ascending=st.session_state.sh_lvl2_hub_sort_asc)
-                            
-                            for _, hub_row in hub_groups.iterrows():
-                                hub_name = hub_row['current_hub']
-                                h_ship = hub_row['Shipments']
-                                h_a02 = hub_row['Ageing_0_2']
-                                h_a35 = hub_row['Ageing_3_5']
-                                h_a5p = hub_row['Ageing_5_plus']
-                                h_d5p = hub_row['Debit_5_plus']
+                            szm_groups = szm_groups.sort_values(st.session_state.sh_lvl2_sort_col, ascending=st.session_state.sh_lvl2_sort_asc)
+                        
+                            for _, szm_row in szm_groups.iterrows():
+                                with st.container(border=False):
+                                    szm_name = szm_row['SZM']
+                                    szm_ship = szm_row['Shipments']
+                                    szm_a02 = szm_row['Ageing_0_2']
+                                    szm_a35 = szm_row['Ageing_3_5']
+                                    szm_a5p = szm_row['Ageing_5_plus']
+                                    szm_d5p = szm_row['Debit_5_plus']
                                 
-                                hc_space, hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([0.35, 1.65, 1.0, 0.8, 0.8, 0.8, 1.1])
-                                with hc1:
-                                    if st.button(f"{hub_name}", key=f"btn_hub_{sh_name}_{szm_name}_{hub_name}", type="tertiary"):
-                                        show_data_preview(f"{hub_name}", szm_df[szm_df['current_hub'] == hub_name])
+                                    szm_expanded = st.session_state.get(f"szm_{sh_name}_{szm_name}", False)
+                                    szm_icon = "▼" if szm_expanded else "▶"
                                 
-                                with hc2:
-                                    st.button(f"{h_ship:,}", key=f"btn_hub_lvl3_ship_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Shipments',))
-                                with hc3:
-                                    st.button(f"{h_a02:,}", key=f"btn_hub_lvl3_a02_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_0_2',))
-                                with hc4:
-                                    st.button(f"{h_a35:,}", key=f"btn_hub_lvl3_a35_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_3_5',))
-                                with hc5:
-                                    st.button(f"{h_a5p:,}", key=f"btn_hub_lvl3_a5p_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_5_plus',))
-                                with hc6:
-                                    st.button(f"{format_indian_currency(h_d5p)}", key=f"btn_hub_lvl3_d5p_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Debit_5_plus',))
-                st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
-            
+                                    # Custom Table Row: SZM (Indented visually)
+                                    sc_space, sc1, sc2, sc3, sc4, sc5, sc6, sc7 = st.columns([0.1, 0.15, 1.75, 1.0, 0.8, 0.8, 0.8, 1.1])
+                                    sc1.markdown("<span class='sticky-lvl2'></span>", unsafe_allow_html=True)
+                                    expand_szm = sc1.checkbox(f"{szm_icon}", key=f"szm_{sh_name}_{szm_name}")
+                                    with sc2:
+                                        if st.button(f"{szm_name}", key=f"btn_prev_szm_{sh_name}_{szm_name}", type="tertiary"):
+                                            show_data_preview(f"SZM: {szm_name}", sh_df[sh_df['SZM'] == szm_name])
+                                    with sc3:
+                                        st.button(get_sort_label(f"{szm_ship:,}", 'Shipments', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_ship_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Shipments',))
+                                    with sc4:
+                                        st.button(get_sort_label(f"{szm_a02:,}", 'Ageing_0_2', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_a02_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_0_2',))
+                                    with sc5:
+                                        st.button(get_sort_label(f"{szm_a35:,}", 'Ageing_3_5', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_a35_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_3_5',))
+                                    with sc6:
+                                        st.button(get_sort_label(f"{szm_a5p:,}", 'Ageing_5_plus', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_a5p_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_5_plus',))
+                                    with sc7:
+                                        st.button(get_sort_label(f"{format_indian_currency(szm_d5p)}", 'Debit_5_plus', st.session_state.sh_lvl2_hub_sort_col, st.session_state.sh_lvl2_hub_sort_asc), key=f"btn_szm_lvl3_d5p_{sh_name}_{szm_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Debit_5_plus',))
+                                
+                                    if expand_szm:
+                                        szm_df = sh_df[sh_df['SZM'] == szm_name]
+                                    
+                                        # Group Level 3: Hub (Displayed as clickable text rows)
+                                        hub_groups = szm_df.groupby('current_hub').agg(
+                                            Shipments=('current_hub', 'count'),
+                                            Ageing_0_2=('Ageing_0_2', 'sum'),
+                                            Ageing_3_5=('Ageing_3_5', 'sum'),
+                                            Ageing_5_plus=('Ageing_5_plus', 'sum'),
+                                            Debit_5_plus=('Debit_5_plus', 'sum')
+                                        ).reset_index()
+                                        hub_groups = hub_groups.sort_values(st.session_state.sh_lvl2_hub_sort_col, ascending=st.session_state.sh_lvl2_hub_sort_asc)
+                                    
+                                        for _, hub_row in hub_groups.iterrows():
+                                            hub_name = hub_row['current_hub']
+                                            h_ship = hub_row['Shipments']
+                                            h_a02 = hub_row['Ageing_0_2']
+                                            h_a35 = hub_row['Ageing_3_5']
+                                            h_a5p = hub_row['Ageing_5_plus']
+                                            h_d5p = hub_row['Debit_5_plus']
+                                        
+                                            hc_space, hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([0.35, 1.65, 1.0, 0.8, 0.8, 0.8, 1.1])
+                                            with hc1:
+                                                if st.button(f"{hub_name}", key=f"btn_hub_{sh_name}_{szm_name}_{hub_name}", type="tertiary"):
+                                                    show_data_preview(f"{hub_name}", szm_df[szm_df['current_hub'] == hub_name])
+                                        
+                                            with hc2:
+                                                st.button(f"{h_ship:,}", key=f"btn_hub_lvl3_ship_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Shipments',))
+                                            with hc3:
+                                                st.button(f"{h_a02:,}", key=f"btn_hub_lvl3_a02_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_0_2',))
+                                            with hc4:
+                                                st.button(f"{h_a35:,}", key=f"btn_hub_lvl3_a35_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_3_5',))
+                                            with hc5:
+                                                st.button(f"{h_a5p:,}", key=f"btn_hub_lvl3_a5p_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Ageing_5_plus',))
+                                            with hc6:
+                                                st.button(f"{format_indian_currency(h_d5p)}", key=f"btn_hub_lvl3_d5p_val_{sh_name}_{szm_name}_{hub_name}", type="tertiary", on_click=toggle_sh_lvl2_hub_sort, args=('Debit_5_plus',))
+                        st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
+                
         st.markdown("<br>", unsafe_allow_html=True)
         st.subheader("POD > LM State Head > Hub")
         
-        with st.container(height=520, border=True):
+        with st.container(border=True):
             # --- POD TABLE HEADER ---
             p_head1, p_head2, p_head3, p_head4, p_head5, p_head6 = st.columns([2.0, 1.0, 0.8, 0.8, 0.8, 1.1])
             
@@ -1145,125 +1174,130 @@ RTS Operations Team"""
                 st.button(f"💸 5+ Debit{pod_sort_icon('Debit_5_plus')}", on_click=toggle_pod_sort, args=('Debit_5_plus',), key="sort_pod_d5p", type="tertiary")
             st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
             
-            # Group Level 1: POD
-            pod_groups = hier_df.groupby('POD Zone').agg(
-                Shipments=('POD Zone', 'count'),
-                Ageing_0_2=('Ageing_0_2', 'sum'),
-                Ageing_3_5=('Ageing_3_5', 'sum'),
-                Ageing_5_plus=('Ageing_5_plus', 'sum'),
-                Debit_5_plus=('Debit_5_plus', 'sum')
-            ).reset_index()
+            with st.container(height=500, border=False):
+                # Group Level 1: POD
+                pod_groups = hier_df.groupby('POD Zone').agg(
+                    Shipments=('POD Zone', 'count'),
+                    Ageing_0_2=('Ageing_0_2', 'sum'),
+                    Ageing_3_5=('Ageing_3_5', 'sum'),
+                    Ageing_5_plus=('Ageing_5_plus', 'sum'),
+                    Debit_5_plus=('Debit_5_plus', 'sum')
+                ).reset_index()
             
-            # Apply sorting based on session state
-            pod_groups = pod_groups.sort_values('POD Zone' if st.session_state.pod_sort_col == 'POD' else st.session_state.pod_sort_col, ascending=st.session_state.pod_sort_asc)
+                # Apply sorting based on session state
+                pod_groups = pod_groups.sort_values('POD Zone' if st.session_state.pod_sort_col == 'POD' else st.session_state.pod_sort_col, ascending=st.session_state.pod_sort_asc)
             
-            for _, pod_row in pod_groups.iterrows():
-                pod_name = pod_row['POD Zone']
-                pod_ship = pod_row['Shipments']
-                pod_a02 = pod_row['Ageing_0_2']
-                pod_a35 = pod_row['Ageing_3_5']
-                pod_a5p = pod_row['Ageing_5_plus']
-                pod_d5p = pod_row['Debit_5_plus']
-                
-                pod_expanded = st.session_state.get(f"pod_{pod_name}", False)
-                pod_icon = "▼" if pod_expanded else "▶"
-                
-                # Custom Table Row: POD
-                c1, c2, c3, c4, c5, c6, c7 = st.columns([0.15, 1.85, 1.0, 0.8, 0.8, 0.8, 1.1])
-                expand_pod = c1.checkbox(f"{pod_icon}", key=f"pod_{pod_name}")
-                with c2:
-                    if st.button(f"{pod_name}", key=f"btn_prev_pod_{pod_name}", type="tertiary"):
-                        show_data_preview(f"POD: {pod_name}", hier_df[hier_df['POD Zone'] == pod_name])
-                with c3:
-                    st.button(get_sort_label(f"{pod_ship:,}", 'Shipments', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_ship_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Shipments',))
-                with c4:
-                    st.button(get_sort_label(f"{pod_a02:,}", 'Ageing_0_2', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_a02_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Ageing_0_2',))
-                with c5:
-                    st.button(get_sort_label(f"{pod_a35:,}", 'Ageing_3_5', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_a35_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Ageing_3_5',))
-                with c6:
-                    st.button(get_sort_label(f"{pod_a5p:,}", 'Ageing_5_plus', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_a5p_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Ageing_5_plus',))
-                with c7:
-                    st.button(get_sort_label(f"{format_indian_currency(pod_d5p)}", 'Debit_5_plus', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_d5p_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Debit_5_plus',))
-                
-                if expand_pod:
-                    pod_df = hier_df[hier_df['POD Zone'] == pod_name]
+                for _, pod_row in pod_groups.iterrows():
+                    with st.container(border=False):
+                        pod_name = pod_row['POD Zone']
+                        pod_ship = pod_row['Shipments']
+                        pod_a02 = pod_row['Ageing_0_2']
+                        pod_a35 = pod_row['Ageing_3_5']
+                        pod_a5p = pod_row['Ageing_5_plus']
+                        pod_d5p = pod_row['Debit_5_plus']
                     
-                    # Group Level 2: LM State Head
-                    state_groups = pod_df.groupby('LM State Head').agg(
-                        Shipments=('LM State Head', 'count'),
-                        Ageing_0_2=('Ageing_0_2', 'sum'),
-                        Ageing_3_5=('Ageing_3_5', 'sum'),
-                        Ageing_5_plus=('Ageing_5_plus', 'sum'),
-                        Debit_5_plus=('Debit_5_plus', 'sum')
-                    ).reset_index()
-                    state_groups = state_groups.sort_values(st.session_state.pod_lvl2_sort_col, ascending=st.session_state.pod_lvl2_sort_asc)
+                        pod_expanded = st.session_state.get(f"pod_{pod_name}", False)
+                        pod_icon = "▼" if pod_expanded else "▶"
                     
-                    for _, state_row in state_groups.iterrows():
-                        state_name = state_row['LM State Head']
-                        state_ship = state_row['Shipments']
-                        state_a02 = state_row['Ageing_0_2']
-                        state_a35 = state_row['Ageing_3_5']
-                        state_a5p = state_row['Ageing_5_plus']
-                        state_d5p = state_row['Debit_5_plus']
+                        # Custom Table Row: POD
+                        c1, c2, c3, c4, c5, c6, c7 = st.columns([0.15, 1.85, 1.0, 0.8, 0.8, 0.8, 1.1])
+                        c1.markdown("<span class='sticky-lvl1'></span>", unsafe_allow_html=True)
+                        expand_pod = c1.checkbox(f"{pod_icon}", key=f"pod_{pod_name}")
+                        with c2:
+                            if st.button(f"{pod_name}", key=f"btn_prev_pod_{pod_name}", type="tertiary"):
+                                show_data_preview(f"POD: {pod_name}", hier_df[hier_df['POD Zone'] == pod_name])
+                        with c3:
+                            st.button(get_sort_label(f"{pod_ship:,}", 'Shipments', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_ship_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Shipments',))
+                        with c4:
+                            st.button(get_sort_label(f"{pod_a02:,}", 'Ageing_0_2', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_a02_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Ageing_0_2',))
+                        with c5:
+                            st.button(get_sort_label(f"{pod_a35:,}", 'Ageing_3_5', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_a35_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Ageing_3_5',))
+                        with c6:
+                            st.button(get_sort_label(f"{pod_a5p:,}", 'Ageing_5_plus', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_a5p_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Ageing_5_plus',))
+                        with c7:
+                            st.button(get_sort_label(f"{format_indian_currency(pod_d5p)}", 'Debit_5_plus', st.session_state.pod_lvl2_sort_col, st.session_state.pod_lvl2_sort_asc), key=f"btn_pod_lvl2_d5p_{pod_name}", type="tertiary", on_click=toggle_pod_lvl2_sort, args=('Debit_5_plus',))
+                    
+                        if expand_pod:
+                            pod_df = hier_df[hier_df['POD Zone'] == pod_name]
                         
-                        state_expanded = st.session_state.get(f"state_{pod_name}_{state_name}", False)
-                        state_icon = "▼" if state_expanded else "▶"
-                        
-                        # Custom Table Row: LM State Head (Indented visually)
-                        sc_space, sc1, sc2, sc3, sc4, sc5, sc6, sc7 = st.columns([0.1, 0.15, 1.75, 1.0, 0.8, 0.8, 0.8, 1.1])
-                        expand_state = sc1.checkbox(f"{state_icon}", key=f"state_{pod_name}_{state_name}")
-                        with sc2:
-                            if st.button(f"{state_name}", key=f"btn_prev_state_{pod_name}_{state_name}", type="tertiary"):
-                                show_data_preview(f"LM State Head: {state_name}", pod_df[pod_df['LM State Head'] == state_name])
-                        with sc3:
-                            st.button(get_sort_label(f"{state_ship:,}", 'Shipments', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_ship_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Shipments',))
-                        with sc4:
-                            st.button(get_sort_label(f"{state_a02:,}", 'Ageing_0_2', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_a02_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_0_2',))
-                        with sc5:
-                            st.button(get_sort_label(f"{state_a35:,}", 'Ageing_3_5', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_a35_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_3_5',))
-                        with sc6:
-                            st.button(get_sort_label(f"{state_a5p:,}", 'Ageing_5_plus', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_a5p_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_5_plus',))
-                        with sc7:
-                            st.button(get_sort_label(f"{format_indian_currency(state_d5p)}", 'Debit_5_plus', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_d5p_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Debit_5_plus',))
-                        
-                        if expand_state:
-                            state_df = pod_df[pod_df['LM State Head'] == state_name]
-                            
-                            # Group Level 3: Hub (Displayed as clickable text rows)
-                            hub_groups = state_df.groupby('current_hub').agg(
-                                Shipments=('current_hub', 'count'),
+                            # Group Level 2: LM State Head
+                            state_groups = pod_df.groupby('LM State Head').agg(
+                                Shipments=('LM State Head', 'count'),
                                 Ageing_0_2=('Ageing_0_2', 'sum'),
                                 Ageing_3_5=('Ageing_3_5', 'sum'),
                                 Ageing_5_plus=('Ageing_5_plus', 'sum'),
                                 Debit_5_plus=('Debit_5_plus', 'sum')
                             ).reset_index()
-                            hub_groups = hub_groups.sort_values(st.session_state.pod_lvl2_hub_sort_col, ascending=st.session_state.pod_lvl2_hub_sort_asc)
-                            
-                            for _, hub_row in hub_groups.iterrows():
-                                hub_name = hub_row['current_hub']
-                                h_ship = hub_row['Shipments']
-                                h_a02 = hub_row['Ageing_0_2']
-                                h_a35 = hub_row['Ageing_3_5']
-                                h_a5p = hub_row['Ageing_5_plus']
-                                h_d5p = hub_row['Debit_5_plus']
+                            state_groups = state_groups.sort_values(st.session_state.pod_lvl2_sort_col, ascending=st.session_state.pod_lvl2_sort_asc)
+                        
+                            for _, state_row in state_groups.iterrows():
+                                with st.container(border=False):
+                                    state_name = state_row['LM State Head']
+                                    state_ship = state_row['Shipments']
+                                    state_a02 = state_row['Ageing_0_2']
+                                    state_a35 = state_row['Ageing_3_5']
+                                    state_a5p = state_row['Ageing_5_plus']
+                                    state_d5p = state_row['Debit_5_plus']
                                 
-                                hc_space, hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([0.35, 1.65, 1.0, 0.8, 0.8, 0.8, 1.1])
-                                with hc1:
-                                    if st.button(f"{hub_name}", key=f"btn_hub_pod_{pod_name}_{state_name}_{hub_name}", type="tertiary"):
-                                        show_data_preview(f"{hub_name}", state_df[state_df['current_hub'] == hub_name])
+                                    state_expanded = st.session_state.get(f"state_{pod_name}_{state_name}", False)
+                                    state_icon = "▼" if state_expanded else "▶"
                                 
-                                with hc2:
-                                    st.button(f"{h_ship:,}", key=f"btn_state_lvl3_ship_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Shipments',))
-                                with hc3:
-                                    st.button(f"{h_a02:,}", key=f"btn_state_lvl3_a02_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_0_2',))
-                                with hc4:
-                                    st.button(f"{h_a35:,}", key=f"btn_state_lvl3_a35_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_3_5',))
-                                with hc5:
-                                    st.button(f"{h_a5p:,}", key=f"btn_state_lvl3_a5p_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_5_plus',))
-                                with hc6:
-                                    st.button(f"{format_indian_currency(h_d5p)}", key=f"btn_state_lvl3_d5p_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Debit_5_plus',))
-                st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
-
+                                    # Custom Table Row: LM State Head (Indented visually)
+                                    sc_space, sc1, sc2, sc3, sc4, sc5, sc6, sc7 = st.columns([0.1, 0.15, 1.75, 1.0, 0.8, 0.8, 0.8, 1.1])
+                                    sc1.markdown("<span class='sticky-lvl2'></span>", unsafe_allow_html=True)
+                                    expand_state = sc1.checkbox(f"{state_icon}", key=f"state_{pod_name}_{state_name}")
+                                    with sc2:
+                                        if st.button(f"{state_name}", key=f"btn_prev_state_{pod_name}_{state_name}", type="tertiary"):
+                                            show_data_preview(f"LM State Head: {state_name}", pod_df[pod_df['LM State Head'] == state_name])
+                                    with sc3:
+                                        st.button(get_sort_label(f"{state_ship:,}", 'Shipments', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_ship_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Shipments',))
+                                    with sc4:
+                                        st.button(get_sort_label(f"{state_a02:,}", 'Ageing_0_2', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_a02_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_0_2',))
+                                    with sc5:
+                                        st.button(get_sort_label(f"{state_a35:,}", 'Ageing_3_5', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_a35_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_3_5',))
+                                    with sc6:
+                                        st.button(get_sort_label(f"{state_a5p:,}", 'Ageing_5_plus', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_a5p_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_5_plus',))
+                                    with sc7:
+                                        st.button(get_sort_label(f"{format_indian_currency(state_d5p)}", 'Debit_5_plus', st.session_state.pod_lvl2_hub_sort_col, st.session_state.pod_lvl2_hub_sort_asc), key=f"btn_state_lvl3_d5p_{pod_name}_{state_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Debit_5_plus',))
+                                
+                                    if expand_state:
+                                        state_df = pod_df[pod_df['LM State Head'] == state_name]
+                                    
+                                        # Group Level 3: Hub (Displayed as clickable text rows)
+                                        hub_groups = state_df.groupby('current_hub').agg(
+                                            Shipments=('current_hub', 'count'),
+                                            Ageing_0_2=('Ageing_0_2', 'sum'),
+                                            Ageing_3_5=('Ageing_3_5', 'sum'),
+                                            Ageing_5_plus=('Ageing_5_plus', 'sum'),
+                                            Debit_5_plus=('Debit_5_plus', 'sum')
+                                        ).reset_index()
+                                        hub_groups = hub_groups.sort_values(st.session_state.pod_lvl2_hub_sort_col, ascending=st.session_state.pod_lvl2_hub_sort_asc)
+                                    
+                                        for _, hub_row in hub_groups.iterrows():
+                                            hub_name = hub_row['current_hub']
+                                            h_ship = hub_row['Shipments']
+                                            h_a02 = hub_row['Ageing_0_2']
+                                            h_a35 = hub_row['Ageing_3_5']
+                                            h_a5p = hub_row['Ageing_5_plus']
+                                            h_d5p = hub_row['Debit_5_plus']
+                                        
+                                            hc_space, hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([0.35, 1.65, 1.0, 0.8, 0.8, 0.8, 1.1])
+                                            with hc1:
+                                                if st.button(f"{hub_name}", key=f"btn_hub_pod_{pod_name}_{state_name}_{hub_name}", type="tertiary"):
+                                                    show_data_preview(f"{hub_name}", state_df[state_df['current_hub'] == hub_name])
+                                        
+                                            with hc2:
+                                                st.button(f"{h_ship:,}", key=f"btn_state_lvl3_ship_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Shipments',))
+                                            with hc3:
+                                                st.button(f"{h_a02:,}", key=f"btn_state_lvl3_a02_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_0_2',))
+                                            with hc4:
+                                                st.button(f"{h_a35:,}", key=f"btn_state_lvl3_a35_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_3_5',))
+                                            with hc5:
+                                                st.button(f"{h_a5p:,}", key=f"btn_state_lvl3_a5p_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Ageing_5_plus',))
+                                            with hc6:
+                                                st.button(f"{format_indian_currency(h_d5p)}", key=f"btn_state_lvl3_d5p_val_{pod_name}_{state_name}_{hub_name}", type="tertiary", on_click=toggle_pod_lvl2_hub_sort, args=('Debit_5_plus',))
+                        st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
+    
     with tab_hubs:
         st.subheader("Hub Type > Hub")
         
@@ -1316,85 +1350,88 @@ RTS Operations Team"""
                 st.button(f"💸 5+ Debit{hub_sort_icon('Debit_5_plus')}", on_click=toggle_hub_sort, args=('Debit_5_plus',), key="sort_hub_d5p", type="tertiary")
             st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
             
-            # Group Level 1: Hub Type
-            hub_type_groups = hier_df.groupby('Hub Type').agg(
-                Shipments=('Hub Type', 'count'),
-                Ageing_0_2=('Ageing_0_2', 'sum'),
-                Ageing_3_5=('Ageing_3_5', 'sum'),
-                Ageing_5_plus=('Ageing_5_plus', 'sum'),
-                Debit_5_plus=('Debit_5_plus', 'sum')
-            ).reset_index()
+            with st.container(height=500, border=False):
+                # Group Level 1: Hub Type
+                hub_type_groups = hier_df.groupby('Hub Type').agg(
+                    Shipments=('Hub Type', 'count'),
+                    Ageing_0_2=('Ageing_0_2', 'sum'),
+                    Ageing_3_5=('Ageing_3_5', 'sum'),
+                    Ageing_5_plus=('Ageing_5_plus', 'sum'),
+                    Debit_5_plus=('Debit_5_plus', 'sum')
+                ).reset_index()
             
-            # Apply sorting based on session state
-            hub_type_groups = hub_type_groups.sort_values('Hub Type' if st.session_state.hub_sort_col == 'Hub Type' else st.session_state.hub_sort_col, ascending=st.session_state.hub_sort_asc)
+                # Apply sorting based on session state
+                hub_type_groups = hub_type_groups.sort_values('Hub Type' if st.session_state.hub_sort_col == 'Hub Type' else st.session_state.hub_sort_col, ascending=st.session_state.hub_sort_asc)
             
-            for _, ht_row in hub_type_groups.iterrows():
-                ht_name = ht_row['Hub Type']
-                ht_ship = ht_row['Shipments']
-                ht_a02 = ht_row['Ageing_0_2']
-                ht_a35 = ht_row['Ageing_3_5']
-                ht_a5p = ht_row['Ageing_5_plus']
-                ht_d5p = ht_row['Debit_5_plus']
-                
-                ht_expanded = st.session_state.get(f"ht_{ht_name}", False)
-                ht_icon = "▼" if ht_expanded else "▶"
-                
-                # Custom Table Row: Hub Type
-                c1, c2, c3, c4, c5, c6, c7 = st.columns([0.15, 1.85, 1.0, 0.8, 0.8, 0.8, 1.1])
-                expand_ht = c1.checkbox(f"{ht_icon}", key=f"ht_{ht_name}")
-                with c2:
-                    if st.button(f"{ht_name}", key=f"btn_prev_ht_{ht_name}", type="tertiary"):
-                        show_data_preview(f"{ht_name}", hier_df[hier_df['Hub Type'] == ht_name])
-                with c3:
-                    st.button(get_sort_label(f"{ht_ship:,}", 'Shipments', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_ship_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Shipments',))
-                with c4:
-                    st.button(get_sort_label(f"{ht_a02:,}", 'Ageing_0_2', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_a02_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_0_2',))
-                with c5:
-                    st.button(get_sort_label(f"{ht_a35:,}", 'Ageing_3_5', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_a35_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_3_5',))
-                with c6:
-                    st.button(get_sort_label(f"{ht_a5p:,}", 'Ageing_5_plus', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_a5p_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_5_plus',))
-                with c7:
-                    st.button(get_sort_label(f"{format_indian_currency(ht_d5p)}", 'Debit_5_plus', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_d5p_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Debit_5_plus',))
-                
-                if expand_ht:
-                    ht_df = hier_df[hier_df['Hub Type'] == ht_name]
+                for _, ht_row in hub_type_groups.iterrows():
+                    with st.container(border=False):
+                        ht_name = ht_row['Hub Type']
+                        ht_ship = ht_row['Shipments']
+                        ht_a02 = ht_row['Ageing_0_2']
+                        ht_a35 = ht_row['Ageing_3_5']
+                        ht_a5p = ht_row['Ageing_5_plus']
+                        ht_d5p = ht_row['Debit_5_plus']
                     
-                    # Group Level 2: Hub & State Head
-                    hub_sh_groups = ht_df.groupby(['current_hub', 'State Head']).agg(
-                        Shipments=('current_hub', 'count'),
-                        Ageing_0_2=('Ageing_0_2', 'sum'),
-                        Ageing_3_5=('Ageing_3_5', 'sum'),
-                        Ageing_5_plus=('Ageing_5_plus', 'sum'),
-                        Debit_5_plus=('Debit_5_plus', 'sum')
-                    ).reset_index()
-                    hub_sh_groups = hub_sh_groups.sort_values(st.session_state.hub_lvl2_sort_col, ascending=st.session_state.hub_lvl2_sort_asc)
+                        ht_expanded = st.session_state.get(f"ht_{ht_name}", False)
+                        ht_icon = "▼" if ht_expanded else "▶"
                     
-                    for _, hsh_row in hub_sh_groups.iterrows():
-                        hsh_hub = hsh_row['current_hub']
-                        hsh_sh = hsh_row['State Head']
-                        hsh_ship = hsh_row['Shipments']
-                        hsh_a02 = hsh_row['Ageing_0_2']
-                        hsh_a35 = hsh_row['Ageing_3_5']
-                        hsh_a5p = hsh_row['Ageing_5_plus']
-                        hsh_d5p = hsh_row['Debit_5_plus']
+                        # Custom Table Row: Hub Type
+                        c1, c2, c3, c4, c5, c6, c7 = st.columns([0.15, 1.85, 1.0, 0.8, 0.8, 0.8, 1.1])
+                        c1.markdown("<span class='sticky-lvl1'></span>", unsafe_allow_html=True)
+                        expand_ht = c1.checkbox(f"{ht_icon}", key=f"ht_{ht_name}")
+                        with c2:
+                            if st.button(f"{ht_name}", key=f"btn_prev_ht_{ht_name}", type="tertiary"):
+                                show_data_preview(f"{ht_name}", hier_df[hier_df['Hub Type'] == ht_name])
+                        with c3:
+                            st.button(get_sort_label(f"{ht_ship:,}", 'Shipments', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_ship_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Shipments',))
+                        with c4:
+                            st.button(get_sort_label(f"{ht_a02:,}", 'Ageing_0_2', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_a02_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_0_2',))
+                        with c5:
+                            st.button(get_sort_label(f"{ht_a35:,}", 'Ageing_3_5', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_a35_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_3_5',))
+                        with c6:
+                            st.button(get_sort_label(f"{ht_a5p:,}", 'Ageing_5_plus', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_a5p_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_5_plus',))
+                        with c7:
+                            st.button(get_sort_label(f"{format_indian_currency(ht_d5p)}", 'Debit_5_plus', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_d5p_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Debit_5_plus',))
+                    
+                        if expand_ht:
+                            ht_df = hier_df[hier_df['Hub Type'] == ht_name]
                         
-                        # Custom Table Row: Hub Name & State Head (Indented visually)
-                        hc_space, hc_hub, hc_am, hc2, hc3, hc4, hc5, hc6 = st.columns([0.15, 1.05, 0.8, 1.0, 0.8, 0.8, 0.8, 1.1])
-                        with hc_hub:
-                            if st.button(f"{hsh_hub}", key=f"btn_hub_sh_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary"):
-                                show_data_preview(f"{hsh_hub}", ht_df[(ht_df['current_hub'] == hsh_hub) & (ht_df['State Head'] == hsh_sh)])
+                            # Group Level 2: Hub & State Head
+                            hub_sh_groups = ht_df.groupby(['current_hub', 'State Head']).agg(
+                                Shipments=('current_hub', 'count'),
+                                Ageing_0_2=('Ageing_0_2', 'sum'),
+                                Ageing_3_5=('Ageing_3_5', 'sum'),
+                                Ageing_5_plus=('Ageing_5_plus', 'sum'),
+                                Debit_5_plus=('Debit_5_plus', 'sum')
+                            ).reset_index()
+                            hub_sh_groups = hub_sh_groups.sort_values(st.session_state.hub_lvl2_sort_col, ascending=st.session_state.hub_lvl2_sort_asc)
                         
-                        hc_am.markdown(f"<p style='margin: 0; padding-top: 2px;'>{hsh_sh}</p>", unsafe_allow_html=True)
-                        
-                        with hc2:
-                            st.button(f"{hsh_ship:,}", key=f"btn_hub_lvl2_ship_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Shipments',))
-                        with hc3:
-                            st.button(f"{hsh_a02:,}", key=f"btn_hub_lvl2_a02_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_0_2',))
-                        with hc4:
-                            st.button(f"{hsh_a35:,}", key=f"btn_hub_lvl2_a35_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_3_5',))
-                        with hc5:
-                            st.button(f"{hsh_a5p:,}", key=f"btn_hub_lvl2_a5p_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_5_plus',))
-                        with hc6:
-                            st.button(f"{format_indian_currency(hsh_d5p)}", key=f"btn_hub_lvl2_d5p_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Debit_5_plus',))
-                st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
-        
+                            for _, hsh_row in hub_sh_groups.iterrows():
+                                hsh_hub = hsh_row['current_hub']
+                                hsh_sh = hsh_row['State Head']
+                                hsh_ship = hsh_row['Shipments']
+                                hsh_a02 = hsh_row['Ageing_0_2']
+                                hsh_a35 = hsh_row['Ageing_3_5']
+                                hsh_a5p = hsh_row['Ageing_5_plus']
+                                hsh_d5p = hsh_row['Debit_5_plus']
+                            
+                                # Custom Table Row: Hub Name & State Head (Indented visually)
+                                hc_space, hc_hub, hc_am, hc2, hc3, hc4, hc5, hc6 = st.columns([0.15, 1.05, 0.8, 1.0, 0.8, 0.8, 0.8, 1.1])
+                                with hc_hub:
+                                    if st.button(f"{hsh_hub}", key=f"btn_hub_sh_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary"):
+                                        show_data_preview(f"{hsh_hub}", ht_df[(ht_df['current_hub'] == hsh_hub) & (ht_df['State Head'] == hsh_sh)])
+                            
+                                hc_am.markdown(f"<p style='margin: 0; padding-top: 2px;'>{hsh_sh}</p>", unsafe_allow_html=True)
+                            
+                                with hc2:
+                                    st.button(f"{hsh_ship:,}", key=f"btn_hub_lvl2_ship_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Shipments',))
+                                with hc3:
+                                    st.button(f"{hsh_a02:,}", key=f"btn_hub_lvl2_a02_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_0_2',))
+                                with hc4:
+                                    st.button(f"{hsh_a35:,}", key=f"btn_hub_lvl2_a35_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_3_5',))
+                                with hc5:
+                                    st.button(f"{hsh_a5p:,}", key=f"btn_hub_lvl2_a5p_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_5_plus',))
+                                with hc6:
+                                    st.button(f"{format_indian_currency(hsh_d5p)}", key=f"btn_hub_lvl2_d5p_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Debit_5_plus',))
+                        st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
+            
