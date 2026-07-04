@@ -198,12 +198,6 @@ st.markdown("""
         display: none !important;
     }
     
-    /* Custom dynamic max-height container */
-    div.element-container:has(.scrollable-table-marker) + div.element-container > div[data-testid="stVerticalBlock"] {
-        max-height: 600px;
-        overflow-y: scroll;
-        overflow-x: hidden;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -809,8 +803,7 @@ RTS Operations Team"""
             st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
             
             # Group Level 1: Flag
-            st.markdown("<div class='scrollable-table-marker'></div>", unsafe_allow_html=True)
-            with st.container(border=False):
+            with st.container(height=600, border=False):
                 flag_groups = hier_df.groupby('flag2').agg(
                     Shipments=('flag2', 'count'),
                     Ageing_0_2=('Ageing_0_2', 'sum'),
@@ -1015,8 +1008,7 @@ RTS Operations Team"""
                 st.button(f"💸 5+ Debit{sort_icon('Debit_5_plus')}", on_click=toggle_sh_sort, args=('Debit_5_plus',), key="sort_sh_d5p", type="tertiary")
             st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
             
-            st.markdown("<div class='scrollable-table-marker'></div>", unsafe_allow_html=True)
-            with st.container(border=False):
+            with st.container(height=600, border=False):
                 # Group Level 1: State Head
                 sh_groups = hier_df.groupby('State Head').agg(
                     Shipments=('State Head', 'count'),
@@ -1161,8 +1153,7 @@ RTS Operations Team"""
                 st.button(f"💸 5+ Debit{pod_sort_icon('Debit_5_plus')}", on_click=toggle_pod_sort, args=('Debit_5_plus',), key="sort_pod_d5p", type="tertiary")
             st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
             
-            st.markdown("<div class='scrollable-table-marker'></div>", unsafe_allow_html=True)
-            with st.container(border=False):
+            with st.container(height=600, border=False):
                 # Group Level 1: POD
                 pod_groups = hier_df.groupby('POD Zone').agg(
                     Shipments=('POD Zone', 'count'),
@@ -1335,8 +1326,7 @@ RTS Operations Team"""
                 st.button(f"💸 5+ Debit{hub_sort_icon('Debit_5_plus')}", on_click=toggle_hub_sort, args=('Debit_5_plus',), key="sort_hub_d5p", type="tertiary")
             st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
             
-            st.markdown("<div class='scrollable-table-marker'></div>", unsafe_allow_html=True)
-            with st.container(border=False):
+            with st.container(height=600, border=False):
                 # Group Level 1: Hub Type
                 hub_type_groups = hier_df.groupby('Hub Type').agg(
                     Shipments=('Hub Type', 'count'),
