@@ -16,6 +16,14 @@ st.set_page_config(page_title="RTS Pendency Dashboard", layout="wide")
 st.markdown("""
     <style>
     /* --- THEME ACCENT COLOR OVERRIDE (#1a7b6b) FOR BOTH THEMES --- */
+    
+    /* Apply Shadowfax Dark Background ONLY on Dark Mode */
+    @media (prefers-color-scheme: dark) {
+        .stApp, .stApp > header {
+            background-color: #08100E !important;
+        }
+    }
+    
     /* 1. Checkboxes (checked state) */
     div[data-testid="stCheckbox"] div[data-baseweb="checkbox"] div[aria-checked="true"] {
         background-color: #1a7b6b !important;
