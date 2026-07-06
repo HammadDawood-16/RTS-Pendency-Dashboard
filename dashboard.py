@@ -443,16 +443,39 @@ if not df.empty:
         with btn_col2:
             # Construct pre-filled Gmail Compose URL parameters
             subject = f"RTS Pendency Report - {datetime.date.today().strftime('%d-%b-%Y')}"
-            body_text = f"""Hello team,
+            
+            # Dynamically compute Bucket Split and Hubs text
+            bucket_text = ""
+            if 'bucket' in df.columns and 'debit_value' in df.columns:
+                mail_debit = pd.to_numeric(df['debit_value'], errors='coerce').fillna(0)
+                b_grp = df.groupby('bucket').agg(Shipments=('bucket', 'count'), Debit=(mail_debit.name, lambda x: mail_debit.loc[x.index].sum())).sort_values('Shipments', ascending=False)
+                bucket_lines = []
+                for b_name, b_row in b_grp.iterrows():
+                    bucket_lines.append(f"  * {b_name}: {b_row['Shipments']:,} ({format_indian_currency(b_row['Debit'])})")
+                bucket_text = "\nBUCKET SPLIT:\n" + "\n".join(bucket_lines) + "\n"
+                
+            hub_text = ""
+            if 'current_hub' in df.columns and 'debit_value' in df.columns:
+                mail_debit = pd.to_numeric(df['debit_value'], errors='coerce').fillna(0)
+                h_grp = df.groupby('current_hub').agg(Shipments=('current_hub', 'count'), Debit=(mail_debit.name, lambda x: mail_debit.loc[x.index].sum())).sort_values('Debit', ascending=False).head(5)
+                hub_lines = []
+                for i, (h_name, h_row) in enumerate(h_grp.iterrows(), 1):
+                    hub_lines.append(f"  {i}. {h_name} -> {h_row['Shipments']:,} ({format_indian_currency(h_row['Debit'])})")
+                hub_text = "\nTOP 5 HUBS BY OPEN DEBIT:\n" + "\n".join(hub_lines) + "\n"
+
+            body_text = f"""Shadowfax - RTS Pendency Snapshot
+Generated: {datetime.datetime.now().strftime('%d/%m/%Y, %I:%M:%S %p').lower()}
 
 Here is the RTS Pendency overview summary based on the applied global filters:
 
+SUMMARY:
 - Total Shipments: {total_shipments:,}
 - Debit Value: {format_indian_currency(total_debit)}
 - Overall HOV (1k+): {hov_count:,}
 - 5+ Ageing: {ageing_5_plus:,}
-
-Please find the detailed dataset attached. (Note: Please download the Excel file using the '.xlsx' button on the dashboard and attach it to this email.)
+- 5+ Ageing HOV (1k+): {ageing_hov_count:,}
+{bucket_text}{hub_text}
+Please find the detailed dataset attached. (Note: Please download the CSV file using the '.csv' button on the dashboard and attach it to this email.)
 
 Best regards,
 RTS Operations Team"""
@@ -1284,6 +1307,83 @@ RTS Operations Team"""
                     st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
 
     with tab_hubs:
+        st.subheader("Hub Level Summary")
+        
+        # --- HUB LEVEL SORTING STATE ---
+        if "hub_flat_sort_col" not in st.session_state:
+            st.session_state.hub_flat_sort_col = "Shipments"
+        if "hub_flat_sort_asc" not in st.session_state:
+            st.session_state.hub_flat_sort_asc = False
+            
+        def toggle_hub_flat_sort(col):
+            if st.session_state.hub_flat_sort_col == col:
+                st.session_state.hub_flat_sort_asc = not st.session_state.hub_flat_sort_asc
+            else:
+                st.session_state.hub_flat_sort_col = col
+                st.session_state.hub_flat_sort_asc = False
+                
+        with st.container(border=True):
+            st.markdown("<div class='sticky-header-marker'></div>", unsafe_allow_html=True)
+            hf_head1, hf_head_szm, hf_head2, hf_head_tp, hf_head3, hf_head4, hf_head5, hf_head6 = st.columns([1.2, 0.8, 1.0, 0.8, 0.8, 0.8, 0.8, 1.1])
+            
+            with hf_head1:
+                st.button(f"👤 Hub Name", key="sort_hub_flat_name", type="tertiary")
+            with hf_head_szm:
+                st.button("👤 SZM", key="sort_hub_flat_szm", type="tertiary")
+            with hf_head2:
+                st.button(f"📦 Shipments", on_click=toggle_hub_flat_sort, args=('Shipments',), key="sort_hub_flat_ship", type="tertiary")
+            with hf_head_tp:
+                st.button(f"👥 TP", on_click=toggle_hub_flat_sort, args=('TP',), key="sort_hub_flat_tp", type="tertiary")
+            with hf_head3:
+                st.button(f"🟢 0-2 Days", on_click=toggle_hub_flat_sort, args=('Ageing_0_2',), key="sort_hub_flat_a02", type="tertiary")
+            with hf_head4:
+                st.button(f"🟡 3-5 Days", on_click=toggle_hub_flat_sort, args=('Ageing_3_5',), key="sort_hub_flat_a35", type="tertiary")
+            with hf_head5:
+                st.button(f"🔴 5+ Days", on_click=toggle_hub_flat_sort, args=('Ageing_5_plus',), key="sort_hub_flat_a5p", type="tertiary")
+            with hf_head6:
+                st.button(f"💸 5+ Debit", on_click=toggle_hub_flat_sort, args=('Debit_5_plus',), key="sort_hub_flat_d5p", type="tertiary")
+            st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
+            
+            with st.container(height=600, border=False):
+                flat_hub_groups = hier_df.groupby(['current_hub', 'SZM']).agg(
+                    Shipments=('current_hub', 'count'),
+                    TP=('seller_name', 'nunique'),
+                    Ageing_0_2=('Ageing_0_2', 'sum'),
+                    Ageing_3_5=('Ageing_3_5', 'sum'),
+                    Ageing_5_plus=('Ageing_5_plus', 'sum'),
+                    Debit_5_plus=('Debit_5_plus', 'sum')
+                ).reset_index()
+                
+                flat_hub_groups = flat_hub_groups.sort_values(st.session_state.hub_flat_sort_col, ascending=st.session_state.hub_flat_sort_asc)
+                
+                for _, fh_row in flat_hub_groups.iterrows():
+                    fh_hub = fh_row['current_hub']
+                    fh_szm = fh_row['SZM']
+                    fh_ship = fh_row['Shipments']
+                    fh_tp = fh_row['TP']
+                    fh_a02 = fh_row['Ageing_0_2']
+                    fh_a35 = fh_row['Ageing_3_5']
+                    fh_a5p = fh_row['Ageing_5_plus']
+                    fh_d5p = fh_row['Debit_5_plus']
+                    
+                    fc1, fc2, fc3, fc_tp, fc4, fc5, fc6, fc7 = st.columns([1.2, 0.8, 1.0, 0.8, 0.8, 0.8, 0.8, 1.1])
+                    with fc1:
+                        if st.button(f"{fh_hub}", key=f"btn_hub_flat_{fh_hub}_{fh_szm}", type="tertiary"):
+                            show_data_preview(f"{fh_hub}", hier_df[(hier_df['current_hub'] == fh_hub) & (hier_df['SZM'] == fh_szm)])
+                    fc2.markdown(f"<p style='margin: 0; padding-top: 8px;'>{fh_szm}</p>", unsafe_allow_html=True)
+                    with fc3:
+                        st.button(f"{fh_ship:,}", key=f"btn_hub_flat_ship_{fh_hub}_{fh_szm}", type="tertiary")
+                    with fc_tp:
+                        st.button(f"{fh_tp:,}", key=f"btn_hub_flat_tp_{fh_hub}_{fh_szm}", type="tertiary")
+                    with fc4:
+                        st.button(f"{fh_a02:,}", key=f"btn_hub_flat_a02_{fh_hub}_{fh_szm}", type="tertiary")
+                    with fc5:
+                        st.button(f"{fh_a35:,}", key=f"btn_hub_flat_a35_{fh_hub}_{fh_szm}", type="tertiary")
+                    with fc6:
+                        st.button(f"{fh_a5p:,}", key=f"btn_hub_flat_a5p_{fh_hub}_{fh_szm}", type="tertiary")
+                    with fc7:
+                        st.button(f"{format_indian_currency(fh_d5p)}", key=f"btn_hub_flat_d5p_{fh_hub}_{fh_szm}", type="tertiary")
+
         st.subheader("Hub Type > Hub")
         
         # --- HUB SORTING STATE ---
@@ -1315,17 +1415,19 @@ RTS Operations Team"""
         with st.container(border=True):
             # --- TABLE HEADER ---
             st.markdown("<div class='sticky-header-marker'></div>", unsafe_allow_html=True)
-            h_head1, h_head_sh, h_head2, h_head3, h_head4, h_head5, h_head6 = st.columns([1.2, 0.8, 1.0, 0.8, 0.8, 0.8, 1.1])
+            h_head1, h_head_szm, h_head2, h_head_tp, h_head3, h_head4, h_head5, h_head6 = st.columns([1.2, 0.8, 1.0, 0.8, 0.8, 0.8, 0.8, 1.1])
             
             def hub_sort_icon(col):
                 return ""
     
             with h_head1:
                 st.button(f"👤 Hub Type / Name{hub_sort_icon('Hub Type')}", on_click=toggle_hub_sort, args=('Hub Type',), key="sort_hub_name", type="tertiary")
-            with h_head_sh:
-                st.button("👤 State Head", key="sort_hub_sh_header", type="tertiary")
+            with h_head_szm:
+                st.button("👤 SZM", key="sort_hub_sh_header", type="tertiary")
             with h_head2:
                 st.button(f"📦 Shipments{hub_sort_icon('Shipments')}", on_click=toggle_hub_sort, args=('Shipments',), key="sort_hub_ship", type="tertiary")
+            with h_head_tp:
+                st.button(f"👥 TP{hub_sort_icon('TP')}", on_click=toggle_hub_sort, args=('TP',), key="sort_hub_tp", type="tertiary")
             with h_head3:
                 st.button(f"🟢 0-2 Days{hub_sort_icon('Ageing_0_2')}", on_click=toggle_hub_sort, args=('Ageing_0_2',), key="sort_hub_a02", type="tertiary")
             with h_head4:
@@ -1340,6 +1442,7 @@ RTS Operations Team"""
                 # Group Level 1: Hub Type
                 hub_type_groups = hier_df.groupby('Hub Type').agg(
                     Shipments=('Hub Type', 'count'),
+                    TP=('seller_name', 'nunique'),
                     Ageing_0_2=('Ageing_0_2', 'sum'),
                     Ageing_3_5=('Ageing_3_5', 'sum'),
                     Ageing_5_plus=('Ageing_5_plus', 'sum'),
@@ -1352,6 +1455,7 @@ RTS Operations Team"""
                 for _, ht_row in hub_type_groups.iterrows():
                     ht_name = ht_row['Hub Type']
                     ht_ship = ht_row['Shipments']
+                    ht_tp = ht_row['TP']
                     ht_a02 = ht_row['Ageing_0_2']
                     ht_a35 = ht_row['Ageing_3_5']
                     ht_a5p = ht_row['Ageing_5_plus']
@@ -1361,13 +1465,15 @@ RTS Operations Team"""
                     ht_icon = "▼" if ht_expanded else "▶"
                 
                     # Custom Table Row: Hub Type
-                    c1, c2, c3, c4, c5, c6, c7 = st.columns([0.15, 1.85, 1.0, 0.8, 0.8, 0.8, 1.1])
+                    c1, c2, c3, c_tp, c4, c5, c6, c7 = st.columns([0.15, 1.85, 1.0, 0.8, 0.8, 0.8, 0.8, 1.1])
                     expand_ht = c1.checkbox(f"{ht_icon}", key=f"ht_{ht_name}")
                     with c2:
                         if st.button(f"{ht_name}", key=f"btn_prev_ht_{ht_name}", type="tertiary"):
                             show_data_preview(f"{ht_name}", hier_df[hier_df['Hub Type'] == ht_name])
                     with c3:
                         st.button(get_sort_label(f"{ht_ship:,}", 'Shipments', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_ship_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Shipments',))
+                    with c_tp:
+                        st.button(get_sort_label(f"{ht_tp:,}", 'TP', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_tp_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('TP',))
                     with c4:
                         st.button(get_sort_label(f"{ht_a02:,}", 'Ageing_0_2', st.session_state.hub_lvl2_sort_col, st.session_state.hub_lvl2_sort_asc), key=f"btn_hub_lvl2_a02_{ht_name}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_0_2',))
                     with c5:
@@ -1380,9 +1486,10 @@ RTS Operations Team"""
                     if expand_ht:
                         ht_df = hier_df[hier_df['Hub Type'] == ht_name]
                     
-                        # Group Level 2: Hub & State Head
-                        hub_sh_groups = ht_df.groupby(['current_hub', 'State Head']).agg(
+                        # Group Level 2: Hub & SZM
+                        hub_sh_groups = ht_df.groupby(['current_hub', 'SZM']).agg(
                             Shipments=('current_hub', 'count'),
+                            TP=('seller_name', 'nunique'),
                             Ageing_0_2=('Ageing_0_2', 'sum'),
                             Ageing_3_5=('Ageing_3_5', 'sum'),
                             Ageing_5_plus=('Ageing_5_plus', 'sum'),
@@ -1392,23 +1499,26 @@ RTS Operations Team"""
                     
                         for _, hsh_row in hub_sh_groups.iterrows():
                             hsh_hub = hsh_row['current_hub']
-                            hsh_sh = hsh_row['State Head']
+                            hsh_sh = hsh_row['SZM']
                             hsh_ship = hsh_row['Shipments']
+                            hsh_tp = hsh_row['TP']
                             hsh_a02 = hsh_row['Ageing_0_2']
                             hsh_a35 = hsh_row['Ageing_3_5']
                             hsh_a5p = hsh_row['Ageing_5_plus']
                             hsh_d5p = hsh_row['Debit_5_plus']
                         
-                            # Custom Table Row: Hub Name & State Head (Indented visually)
-                            hc_space, hc_hub, hc_am, hc2, hc3, hc4, hc5, hc6 = st.columns([0.15, 1.05, 0.8, 1.0, 0.8, 0.8, 0.8, 1.1])
+                            # Custom Table Row: Hub Name & SZM (Indented visually)
+                            hc_space, hc_hub, hc_am, hc2, hc_tp, hc3, hc4, hc5, hc6 = st.columns([0.15, 1.05, 0.8, 1.0, 0.8, 0.8, 0.8, 0.8, 1.1])
                             with hc_hub:
                                 if st.button(f"{hsh_hub}", key=f"btn_hub_sh_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary"):
-                                    show_data_preview(f"{hsh_hub}", ht_df[(ht_df['current_hub'] == hsh_hub) & (ht_df['State Head'] == hsh_sh)])
+                                    show_data_preview(f"{hsh_hub}", ht_df[(ht_df['current_hub'] == hsh_hub) & (ht_df['SZM'] == hsh_sh)])
                         
                             hc_am.markdown(f"<p style='margin: 0; padding-top: 2px;'>{hsh_sh}</p>", unsafe_allow_html=True)
                         
                             with hc2:
                                 st.button(f"{hsh_ship:,}", key=f"btn_hub_lvl2_ship_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Shipments',))
+                            with hc_tp:
+                                st.button(f"{hsh_tp:,}", key=f"btn_hub_lvl2_tp_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('TP',))
                             with hc3:
                                 st.button(f"{hsh_a02:,}", key=f"btn_hub_lvl2_a02_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Ageing_0_2',))
                             with hc4:
