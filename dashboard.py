@@ -17,13 +17,6 @@ st.markdown("""
     <style>
     /* --- THEME ACCENT COLOR OVERRIDE (#1a7b6b) FOR BOTH THEMES --- */
     
-    /* Apply Shadowfax Dark Background ONLY on Dark Mode */
-    @media (prefers-color-scheme: dark) {
-        .stApp, .stApp > header {
-            background-color: #08100E !important;
-        }
-    }
-    
     /* 1. Checkboxes (checked state) */
     div[data-testid="stCheckbox"] div[data-baseweb="checkbox"] div[aria-checked="true"] {
         background-color: #1a7b6b !important;
@@ -424,25 +417,22 @@ if not df.empty:
         st.write(f"Showing all {len(data_subset):,} records for: **{title}**")
         st.dataframe(data_subset, use_container_width=True, hide_index=True)
 
-    # Cached generator for Excel file from filtered dataframe to prevent heavy recalculations on rerun
-    @st.cache_data(show_spinner="Preparing Excel file...", hash_funcs={pd.DataFrame: lambda d: (d.shape, d.iloc[0, 0] if len(d) > 0 else None, d.iloc[-1, 0] if len(d) > 0 else None)})
-    def generate_excel(dataframe):
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            dataframe.to_excel(writer, index=False, sheet_name='Processed Data')
-        return buffer.getvalue()
+    # Cached generator for CSV file from filtered dataframe to prevent heavy recalculations on rerun
+    @st.cache_data(show_spinner="Preparing CSV file...", hash_funcs={pd.DataFrame: lambda d: (d.shape, d.iloc[0, 0] if len(d) > 0 else None, d.iloc[-1, 0] if len(d) > 0 else None)})
+    def generate_csv(dataframe):
+        return dataframe.to_csv(index=False).encode('utf-8')
 
     # Populate the buttons container defined at the top
     with btn_container:
         _, btn_col1, btn_col2 = st.columns((14, 1, 1))
         with btn_col1:
-            excel_data = generate_excel(df)
+            csv_data = generate_csv(df)
             st.download_button(
-                label=".xlsx",
-                data=excel_data,
-                file_name="Final_ZOHO_Report.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                help="Download the filtered report file as Excel."
+                label=".csv",
+                data=csv_data,
+                file_name="Final_ZOHO_Report.csv",
+                mime="text/csv",
+                help="Download the filtered report file as CSV (much faster than Excel)."
             )
         with btn_col2:
             # Construct pre-filled Gmail Compose URL parameters
