@@ -408,9 +408,15 @@ if not df.empty:
         ofd_d0_mask = (df['order_status'].astype(str).str.strip().str.upper() == 'OUT_FOR_DELIVERY') & (pd.to_numeric(df['LSA'], errors='coerce').fillna(0) > 0)
         ofd_d0_count = ofd_d0_mask.sum()
         ofd_d0_df = df[ofd_d0_mask]
+        
+        ofd_live_mask = (df['order_status'].astype(str).str.strip().str.upper() == 'OUT_FOR_DELIVERY') & (pd.to_numeric(df['LSA'], errors='coerce').fillna(0) == 0)
+        ofd_live_count = ofd_live_mask.sum()
+        ofd_live_df = df[ofd_live_mask]
     else:
         ofd_d0_count = 0
         ofd_d0_df = df.iloc[0:0]
+        ofd_live_count = 0
+        ofd_live_df = df.iloc[0:0]
 
     @st.dialog("Data Preview", width="large")
     def show_data_preview(title, data_subset):
@@ -494,8 +500,8 @@ RTS Operations Team"""
     tab_overview, tab_shszmpod, tab_hubs = st.tabs(["Overview", "State Head/SZM/POD", "Hubs"])
     
     with tab_overview:
-        # 2. Display as Broad Pills in 6 Columns
-        col1, col2, col3, col4, col5, col6 = st.columns(6)
+        # 2. Display as Broad Pills in 7 Columns
+        col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
         
         with col1:
             with st.container(border=True):
@@ -505,33 +511,39 @@ RTS Operations Team"""
                 
         with col2:
             with st.container(border=True):
+                st.markdown("<p class='metric-label' style='color: #4CAF50;'>OFD (Live)</p>", unsafe_allow_html=True)
+                if st.button(f"{ofd_live_count:,}", key="btn_ofd_live", help="Click to view OFD (Live) data", type="primary", use_container_width=True):
+                    show_data_preview("OFD (Live)", ofd_live_df)
+                    
+        with col3:
+            with st.container(border=True):
+                st.markdown("<p class='metric-label'>OFD (D0+)</p>", unsafe_allow_html=True)
+                if st.button(f"{ofd_d0_count:,}", key="btn_ofd_d0", help="Click to view OFD (D0+) data", type="primary", use_container_width=True):
+                    show_data_preview("OFD (D0+)", ofd_d0_df)
+                    
+        with col4:
+            with st.container(border=True):
                 st.markdown("<p class='metric-label'>Debit Value</p>", unsafe_allow_html=True)
                 if st.button(f"{format_indian_currency(total_debit)}", key="btn_debit", help="Click to view Debit Value data", type="primary", use_container_width=True):
                     show_data_preview("Debit Value", df)
                 
-        with col3:
+        with col5:
             with st.container(border=True):
                 st.markdown("<p class='metric-label'>Overall HOV (1k+)</p>", unsafe_allow_html=True)
                 if st.button(f"{hov_count:,}", key="btn_hov", help="Click to view Overall HOV (1k+) data", type="primary", use_container_width=True):
                     show_data_preview("Overall HOV (1k+)", df[debit_series >= 1000])
                 
-        with col4:
+        with col6:
             with st.container(border=True):
                 st.markdown("<p class='metric-label'>5+ Ageing</p>", unsafe_allow_html=True)
                 if st.button(f"{ageing_5_plus:,}", key="btn_ageing", help="Click to view 5+ Ageing data", type="primary", use_container_width=True):
                     show_data_preview("5+ Ageing", df[ageing_series > 5])
                 
-        with col5:
+        with col7:
             with st.container(border=True):
                 st.markdown("<p class='metric-label'>5+ Ageing HOV (1k+)</p>", unsafe_allow_html=True)
                 if st.button(f"{ageing_hov_count:,}", key="btn_ageing_hov", help="Click to view 5+ Ageing HOV (1k+) data", type="primary", use_container_width=True):
                     show_data_preview("5+ Ageing HOV (1k+)", df[(ageing_series > 5) & (debit_series >= 1000)])
-                    
-        with col6:
-            with st.container(border=True):
-                st.markdown("<p class='metric-label'>OFD (D0+)</p>", unsafe_allow_html=True)
-                if st.button(f"{ofd_d0_count:,}", key="btn_ofd_d0", help="Click to view OFD (D0+) data", type="primary", use_container_width=True):
-                    show_data_preview("OFD (D0+)", ofd_d0_df)
     
         # --- CHARTS ---
         import inspect
