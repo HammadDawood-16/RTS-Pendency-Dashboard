@@ -489,7 +489,8 @@ if not df.empty:
                             bucket_rows = ""
                             if 'bucket' in df.columns and 'debit_value' in df.columns:
                                 mail_debit = pd.to_numeric(df['debit_value'], errors='coerce').fillna(0)
-                                b_grp = df.groupby('bucket').agg(Shipments=('bucket', 'count'), Debit=(mail_debit.name, lambda x: mail_debit.loc[x.index].sum())).sort_values('Shipments', ascending=False)
+                                df['_temp_mail_debit'] = mail_debit
+                                b_grp = df.groupby('bucket').agg(Shipments=('bucket', 'count'), Debit=('_temp_mail_debit', 'sum')).sort_values('Shipments', ascending=False)
                                 for b_name, b_row in b_grp.iterrows():
                                     bucket_rows += f'''
                                     <tr style="border-bottom: 1px solid #eee;">
@@ -503,7 +504,8 @@ if not df.empty:
                             hub_rows = ""
                             if 'current_hub' in df.columns and 'debit_value' in df.columns:
                                 mail_debit = pd.to_numeric(df['debit_value'], errors='coerce').fillna(0)
-                                h_grp = df.groupby('current_hub').agg(Shipments=('current_hub', 'count'), Debit=(mail_debit.name, lambda x: mail_debit.loc[x.index].sum())).sort_values('Debit', ascending=False).head(5)
+                                df['_temp_mail_debit'] = mail_debit
+                                h_grp = df.groupby('current_hub').agg(Shipments=('current_hub', 'count'), Debit=('_temp_mail_debit', 'sum')).sort_values('Debit', ascending=False).head(5)
                                 for i, (h_name, h_row) in enumerate(h_grp.iterrows(), 1):
                                     hub_rows += f'''
                                     <tr style="border-bottom: 1px solid #eee;">
@@ -1439,7 +1441,11 @@ if not df.empty:
                 
                 flat_hub_groups = flat_hub_groups.sort_values(st.session_state.hub_flat_sort_col, ascending=st.session_state.hub_flat_sort_asc)
                 
-                for _, fh_row in flat_hub_groups.iterrows():
+                display_hubs = flat_hub_groups.head(100)
+                if len(flat_hub_groups) > 100:
+                    st.markdown(f"<div style='color: #888; font-size: 12px; margin-bottom: 10px;'>Showing top 100 of {len(flat_hub_groups):,} hubs for performance. Use filters to narrow down.</div>", unsafe_allow_html=True)
+                
+                for _, fh_row in display_hubs.iterrows():
                     fh_hub = fh_row['current_hub']
                     fh_szm = fh_row['SZM']
                     fh_ship = fh_row['Shipments']
