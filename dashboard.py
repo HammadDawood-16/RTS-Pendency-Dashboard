@@ -48,7 +48,8 @@ st.markdown("""
 
     /* Style for both download and link buttons to make them matching pills */
     div[data-testid="stDownloadButton"] button,
-    div[data-testid="stLinkButton"] a {
+    div[data-testid="stLinkButton"] a,
+    button[kind="primary"] {
         border-radius: 50px !important;
         padding: 0.5rem 1.8rem !important;
         font-weight: bold !important;
@@ -63,7 +64,8 @@ st.markdown("""
         text-align: center !important;
     }
     div[data-testid="stDownloadButton"] button:hover,
-    div[data-testid="stLinkButton"] a:hover {
+    div[data-testid="stLinkButton"] a:hover,
+    button[kind="primary"]:hover {
         background-color: #1a7b6b !important;
         color: white !important;
         text-decoration: none !important;
@@ -445,7 +447,7 @@ if not df.empty:
             from email.message import EmailMessage
             import io
             
-            if st.button("Mail", help="Send HTML email directly via SMTP"):
+            if st.button("Mail", help="Send HTML email directly via SMTP", type="primary"):
                 sender = st.secrets.get("GMAIL_SENDER", "")
                 password = st.secrets.get("GMAIL_APP_PASSWORD", "")
                 
@@ -1442,8 +1444,6 @@ if not df.empty:
                 flat_hub_groups = flat_hub_groups.sort_values(st.session_state.hub_flat_sort_col, ascending=st.session_state.hub_flat_sort_asc)
                 
                 display_hubs = flat_hub_groups.head(100)
-                if len(flat_hub_groups) > 100:
-                    st.markdown(f"<div style='color: #888; font-size: 12px; margin-bottom: 10px;'>Showing top 100 of {len(flat_hub_groups):,} hubs for performance. Use filters to narrow down.</div>", unsafe_allow_html=True)
                 
                 for _, fh_row in display_hubs.iterrows():
                     fh_hub = fh_row['current_hub']
