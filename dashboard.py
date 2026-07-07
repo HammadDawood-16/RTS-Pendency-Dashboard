@@ -578,7 +578,7 @@ if not df.empty:
                                 smtp.login(sender, password)
                                 smtp.send_message(msg)
                                 
-                            st.success(f"Email sent successfully to {msg['To']}!")
+                            st.toast("Successfully Sent!", icon="✅")
                         except Exception as e:
                             st.error(f"Failed to send email: {str(e)}")
 
