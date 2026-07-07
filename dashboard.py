@@ -46,9 +46,15 @@ st.markdown("""
         color: #1a7b6b !important;
     }
 
+    /* Hide the marker's container to fix vertical alignment */
+    .element-container:has(.mail-btn-marker) {
+        display: none !important;
+    }
+
     /* Style for both download and link buttons to make them matching pills */
     div[data-testid="stDownloadButton"] button,
-    div[data-testid="stLinkButton"] a {
+    div[data-testid="stLinkButton"] a,
+    .element-container:has(.mail-btn-marker) + .element-container button[kind="secondary"] {
         border-radius: 50px !important;
         padding: 0.5rem 1.8rem !important;
         font-weight: bold !important;
@@ -63,13 +69,15 @@ st.markdown("""
         text-align: center !important;
     }
     div[data-testid="stDownloadButton"] button:hover,
-    div[data-testid="stLinkButton"] a:hover {
+    div[data-testid="stLinkButton"] a:hover,
+    .element-container:has(.mail-btn-marker) + .element-container button[kind="secondary"]:hover {
         background-color: #1a7b6b !important;
         color: white !important;
         text-decoration: none !important;
     }
     /* Force text/spans inside the link button to inherit matching colors */
-    div[data-testid="stLinkButton"] a * {
+    div[data-testid="stLinkButton"] a *,
+    .element-container:has(.mail-btn-marker) + .element-container button[kind="secondary"] * {
         color: inherit !important;
         text-decoration: none !important;
     }
@@ -441,6 +449,7 @@ if not df.empty:
                 help="Download the filtered report file as CSV (much faster than Excel)."
             )
         with btn_col2:
+            st.markdown("<span class='mail-btn-marker'></span>", unsafe_allow_html=True)
             import smtplib
             from email.message import EmailMessage
             import io
@@ -1442,8 +1451,7 @@ if not df.empty:
                 flat_hub_groups = flat_hub_groups.sort_values(st.session_state.hub_flat_sort_col, ascending=st.session_state.hub_flat_sort_asc)
                 
                 display_hubs = flat_hub_groups.head(100)
-                if len(flat_hub_groups) > 100:
-                    st.markdown(f"<div style='color: #888; font-size: 12px; margin-bottom: 10px;'>Showing top 100 of {len(flat_hub_groups):,} hubs for performance. Use filters to narrow down.</div>", unsafe_allow_html=True)
+
                 
                 for _, fh_row in display_hubs.iterrows():
                     fh_hub = fh_row['current_hub']
