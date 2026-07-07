@@ -441,52 +441,145 @@ if not df.empty:
                 help="Download the filtered report file as CSV (much faster than Excel)."
             )
         with btn_col2:
-            # Construct pre-filled Gmail Compose URL parameters
-            subject = f"RTS Pendency Report - {datetime.date.today().strftime('%d-%b-%Y')}"
+            import smtplib
+            from email.message import EmailMessage
+            import io
             
-            # Dynamically compute Bucket Split and Hubs text
-            bucket_text = ""
-            if 'bucket' in df.columns and 'debit_value' in df.columns:
-                mail_debit = pd.to_numeric(df['debit_value'], errors='coerce').fillna(0)
-                b_grp = df.groupby('bucket').agg(Shipments=('bucket', 'count'), Debit=(mail_debit.name, lambda x: mail_debit.loc[x.index].sum())).sort_values('Shipments', ascending=False)
-                bucket_lines = []
-                for b_name, b_row in b_grp.iterrows():
-                    bucket_lines.append(f"  * {b_name}: {b_row['Shipments']:,} ({format_indian_currency(b_row['Debit'])})")
-                bucket_text = "\nBUCKET SPLIT:\n" + "\n".join(bucket_lines) + "\n"
+            if st.button("Mail", help="Send HTML email directly via SMTP"):
+                sender = st.secrets.get("GMAIL_SENDER", "")
+                password = st.secrets.get("GMAIL_APP_PASSWORD", "")
                 
-            hub_text = ""
-            if 'current_hub' in df.columns and 'debit_value' in df.columns:
-                mail_debit = pd.to_numeric(df['debit_value'], errors='coerce').fillna(0)
-                h_grp = df.groupby('current_hub').agg(Shipments=('current_hub', 'count'), Debit=(mail_debit.name, lambda x: mail_debit.loc[x.index].sum())).sort_values('Debit', ascending=False).head(5)
-                hub_lines = []
-                for i, (h_name, h_row) in enumerate(h_grp.iterrows(), 1):
-                    hub_lines.append(f"  {i}. {h_name} -> {h_row['Shipments']:,} ({format_indian_currency(h_row['Debit'])})")
-                hub_text = "\nTOP 5 HUBS BY OPEN DEBIT:\n" + "\n".join(hub_lines) + "\n"
+                if not sender or not password:
+                    st.error("Missing GMAIL_SENDER or GMAIL_APP_PASSWORD in secrets.")
+                else:
+                    with st.spinner("Sending email..."):
+                        try:
+                            # 1. GENERATE HTML
+                            gen_date = datetime.datetime.now().strftime('%d/%m/%Y, %I:%M:%S %p').lower()
+                            
+                            # Pills Table
+                            pills_html = f'''
+                            <table style="width: 100%; border-collapse: separate; border-spacing: 10px 0;">
+                              <tr>
+                                <td style="background-color: #f5f5f5; border: 1px solid #ccc; padding: 15px 10px; border-radius: 5px; width: 20%;">
+                                   <div style="font-size: 11px; color: #555; text-transform: uppercase;">Total Shipments</div>
+                                   <div style="font-size: 18px; font-weight: bold; margin-top: 5px; color: #111;">{total_shipments:,}</div>
+                                </td>
+                                <td style="background-color: #fff0f0; border: 1px solid #fcc; padding: 15px 10px; border-radius: 5px; width: 20%;">
+                                   <div style="font-size: 11px; color: #555; text-transform: uppercase;">Debit Value</div>
+                                   <div style="font-size: 18px; font-weight: bold; margin-top: 5px; color: #d32f2f;">{format_indian_currency(total_debit)}</div>
+                                </td>
+                                <td style="background-color: #f0f8ff; border: 1px solid #cce; padding: 15px 10px; border-radius: 5px; width: 20%;">
+                                   <div style="font-size: 11px; color: #555; text-transform: uppercase;">Overall HOV (1k+)</div>
+                                   <div style="font-size: 18px; font-weight: bold; margin-top: 5px; color: #1976d2;">{hov_count:,}</div>
+                                </td>
+                                <td style="background-color: #fff8e1; border: 1px solid #ffe082; padding: 15px 10px; border-radius: 5px; width: 20%;">
+                                   <div style="font-size: 11px; color: #555; text-transform: uppercase;">5+ Ageing</div>
+                                   <div style="font-size: 18px; font-weight: bold; margin-top: 5px; color: #f57f17;">{ageing_5_plus:,}</div>
+                                </td>
+                                <td style="background-color: #fce4ec; border: 1px solid #f48fb1; padding: 15px 10px; border-radius: 5px; width: 20%;">
+                                   <div style="font-size: 11px; color: #555; text-transform: uppercase;">5+ Ageing HOV (1k+)</div>
+                                   <div style="font-size: 18px; font-weight: bold; margin-top: 5px; color: #c2185b;">{ageing_hov_count:,}</div>
+                                </td>
+                              </tr>
+                            </table>
+                            '''
+                            
+                            # Bucket Split Table
+                            bucket_rows = ""
+                            if 'bucket' in df.columns and 'debit_value' in df.columns:
+                                mail_debit = pd.to_numeric(df['debit_value'], errors='coerce').fillna(0)
+                                b_grp = df.groupby('bucket').agg(Shipments=('bucket', 'count'), Debit=(mail_debit.name, lambda x: mail_debit.loc[x.index].sum())).sort_values('Shipments', ascending=False)
+                                for b_name, b_row in b_grp.iterrows():
+                                    bucket_rows += f'''
+                                    <tr style="border-bottom: 1px solid #eee;">
+                                        <td style="padding: 10px 5px;">{b_name}</td>
+                                        <td style="padding: 10px 5px; text-align: right;">{b_row['Shipments']:,}</td>
+                                        <td style="padding: 10px 5px; text-align: right;">{format_indian_currency(b_row['Debit'])}</td>
+                                    </tr>
+                                    '''
+                            
+                            # Hubs Table
+                            hub_rows = ""
+                            if 'current_hub' in df.columns and 'debit_value' in df.columns:
+                                mail_debit = pd.to_numeric(df['debit_value'], errors='coerce').fillna(0)
+                                h_grp = df.groupby('current_hub').agg(Shipments=('current_hub', 'count'), Debit=(mail_debit.name, lambda x: mail_debit.loc[x.index].sum())).sort_values('Debit', ascending=False).head(5)
+                                for i, (h_name, h_row) in enumerate(h_grp.iterrows(), 1):
+                                    hub_rows += f'''
+                                    <tr style="border-bottom: 1px solid #eee;">
+                                        <td style="padding: 10px 5px; color: #888;">{i}</td>
+                                        <td style="padding: 10px 5px; font-weight: bold;">{h_name}</td>
+                                        <td style="padding: 10px 5px; text-align: right;">{h_row['Shipments']:,}</td>
+                                        <td style="padding: 10px 5px; text-align: right;">{format_indian_currency(h_row['Debit'])}</td>
+                                    </tr>
+                                    '''
 
-            body_text = f"""Shadowfax - RTS Pendency Snapshot
-Generated: {datetime.datetime.now().strftime('%d/%m/%Y, %I:%M:%S %p').lower()}
-
-Here is the RTS Pendency overview summary based on the applied global filters:
-
-SUMMARY:
-- Total Shipments: {total_shipments:,}
-- Debit Value: {format_indian_currency(total_debit)}
-- Overall HOV (1k+): {hov_count:,}
-- 5+ Ageing: {ageing_5_plus:,}
-- 5+ Ageing HOV (1k+): {ageing_hov_count:,}
-{bucket_text}{hub_text}
-Please find the detailed dataset attached. (Note: Please download the CSV file using the '.csv' button on the dashboard and attach it to this email.)
-
-Best regards,
-RTS Operations Team"""
-            
-            compose_url = f"https://mail.google.com/mail/?view=cm&fs=1&to={urllib.parse.quote(mail_to)}&cc={urllib.parse.quote(mail_cc)}&su={urllib.parse.quote(subject)}&body={urllib.parse.quote(body_text)}"
-            
-            st.link_button(
-                label="Mail",
-                url=compose_url,
-                help="Draft an email in Gmail with prefilled To, CC, and overview summary text."
-            )
+                            html_content = f'''
+                            <html>
+                            <body style="font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; color: #333; padding: 20px;">
+                                <div style="font-size: 12px; font-weight: bold; color: #d32f2f; letter-spacing: 1px; text-transform: uppercase;">SHADOWFAX &bull; RTS LOSS SNAPSHOT</div>
+                                <h2 style="margin-top: 5px; margin-bottom: 5px;">Shadowfax - RTS Pendency Snapshot</h2>
+                                <div style="color: #888; font-size: 12px; margin-bottom: 20px;">Generated {gen_date}</div>
+                                
+                                <hr style="border: 0; border-top: 2px solid #333; margin-bottom: 20px;" />
+                                
+                                {pills_html}
+                                
+                                <h4 style="margin-top: 40px; margin-bottom: 10px; color: #555; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;">Bucket Split</h4>
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <tr style="background-color: #f9f9f9; border-bottom: 2px solid #eee; text-align: left; font-size: 12px; color: #666;">
+                                        <th style="padding: 10px 5px; font-weight: normal;">BUCKET</th>
+                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">COUNT</th>
+                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">DEBIT</th>
+                                    </tr>
+                                    {bucket_rows}
+                                </table>
+                                
+                                <h4 style="margin-top: 40px; margin-bottom: 10px; color: #555; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;">Top 5 Hubs by Open Debit</h4>
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <tr style="background-color: #f9f9f9; border-bottom: 2px solid #eee; text-align: left; font-size: 12px; color: #666;">
+                                        <th style="padding: 10px 5px; font-weight: normal;">#</th>
+                                        <th style="padding: 10px 5px; font-weight: normal;">HUB</th>
+                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">OPEN</th>
+                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">OPEN DEBIT</th>
+                                    </tr>
+                                    {hub_rows}
+                                </table>
+                                
+                                <div style="margin-top: 40px; padding: 15px; background-color: #e8f5e9; border: 1px dashed #4caf50; color: #2e7d32; border-radius: 5px; text-align: center;">
+                                    &#128206; Attached: <strong>Final_ZOHO_Report.csv</strong> &middot; Summary + AWB-level details
+                                </div>
+                                
+                                <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px; font-size: 11px; color: #999;">
+                                    Sent automatically from the RTS Dashboard.
+                                </div>
+                            </body>
+                            </html>
+                            '''
+                            
+                            # 2. CONSTRUCT EMAIL MESSAGE
+                            msg = EmailMessage()
+                            msg['Subject'] = f"RTS Pendency Report - {datetime.date.today().strftime('%d-%b-%Y')}"
+                            msg['From'] = sender
+                            msg['To'] = mail_to if mail_to else sender
+                            if mail_cc:
+                                msg['Cc'] = mail_cc
+                            
+                            msg.set_content("Please enable HTML to view this message.")
+                            msg.add_alternative(html_content, subtype='html')
+                            
+                            # Attach CSV
+                            csv_bytes = generate_csv(df)
+                            msg.add_attachment(csv_bytes, maintype='text', subtype='csv', filename='Final_ZOHO_Report.csv')
+                            
+                            # 3. SEND EMAIL
+                            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                                smtp.login(sender, password)
+                                smtp.send_message(msg)
+                                
+                            st.success(f"Email sent successfully to {msg['To']}!")
+                        except Exception as e:
+                            st.error(f"Failed to send email: {str(e)}")
 
 
 
