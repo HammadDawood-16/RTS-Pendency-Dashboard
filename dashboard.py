@@ -514,6 +514,19 @@ if not df.empty:
                                     </tr>
                                     '''
 
+                            # Check CSV size before building HTML
+                            csv_bytes = generate_csv(df)
+                            csv_size_mb = len(csv_bytes) / (1024 * 1024)
+                            
+                            if csv_size_mb > 15:
+                                attach_banner = f'''<div style="margin-top: 40px; padding: 15px; background-color: #fff3e0; border: 1px dashed #ff9800; color: #ef6c00; border-radius: 5px; text-align: center;">
+                                    &#9888;&#65039; <strong>Attachment skipped:</strong> The dataset is too large ({csv_size_mb:.1f} MB) for email. Please download it directly from the dashboard.
+                                </div>'''
+                            else:
+                                attach_banner = '''<div style="margin-top: 40px; padding: 15px; background-color: #e8f5e9; border: 1px dashed #4caf50; color: #2e7d32; border-radius: 5px; text-align: center;">
+                                    &#128206; Attached: <strong>Final_ZOHO_Report.csv</strong> &middot; Summary + AWB-level details
+                                </div>'''
+
                             html_content = f'''
                             <html>
                             <body style="font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; color: #333; padding: 20px;">
@@ -546,9 +559,7 @@ if not df.empty:
                                     {hub_rows}
                                 </table>
                                 
-                                <div style="margin-top: 40px; padding: 15px; background-color: #e8f5e9; border: 1px dashed #4caf50; color: #2e7d32; border-radius: 5px; text-align: center;">
-                                    &#128206; Attached: <strong>Final_ZOHO_Report.csv</strong> &middot; Summary + AWB-level details
-                                </div>
+                                {attach_banner}
                                 
                                 <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px; font-size: 11px; color: #999;">
                                     Sent automatically from the RTS Dashboard.
@@ -568,9 +579,9 @@ if not df.empty:
                             msg.set_content("Please enable HTML to view this message.")
                             msg.add_alternative(html_content, subtype='html')
                             
-                            # Attach CSV
-                            csv_bytes = generate_csv(df)
-                            msg.add_attachment(csv_bytes, maintype='text', subtype='csv', filename='Final_ZOHO_Report.csv')
+                            # Attach CSV if small enough
+                            if csv_size_mb <= 15:
+                                msg.add_attachment(csv_bytes, maintype='text', subtype='csv', filename='Final_ZOHO_Report.csv')
                             
                             # 3. SEND EMAIL
                             with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
