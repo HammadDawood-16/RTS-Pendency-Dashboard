@@ -50,6 +50,15 @@ st.markdown("""
     div[data-testid="stDownloadButton"] button,
     div[data-testid="stLinkButton"] a,
     button[kind="primary"] {
+    }
+    button[kind="primary"] p, button[kind="primary"] div {
+        color: #1a7b6b !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+    }
+    button[kind="primary"]:hover p, button[kind="primary"]:hover div {
+        color: white !important;
+    }
         border-radius: 50px !important;
         padding: 0.5rem 1.8rem !important;
         font-weight: bold !important;
@@ -147,6 +156,15 @@ st.markdown("""
     /* --- METRIC NUMBER STYLING --- */
     /* Target ONLY the metric buttons by making them the only Primary buttons on the dashboard */
     button[kind="primary"] {
+    }
+    button[kind="primary"] p, button[kind="primary"] div {
+        color: #1a7b6b !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+    }
+    button[kind="primary"]:hover p, button[kind="primary"]:hover div {
+        color: white !important;
+    }
         height: auto !important;
         min-height: 0 !important;
         padding: 5px 0 !important;
