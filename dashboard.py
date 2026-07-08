@@ -550,7 +550,6 @@ if not df.empty:
                             html_content = f'''
                             <html>
                             <body style="font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; color: #333; padding: 20px;">
-                                <div style="font-size: 12px; font-weight: bold; color: #d32f2f; letter-spacing: 1px; text-transform: uppercase;">SHADOWFAX &bull; RTS PENDENCY SNAPSHOT</div>
                                 <h2 style="margin-top: 5px; margin-bottom: 5px;">Shadowfax - RTS Pendency Snapshot</h2>
                                 <div style="color: #888; font-size: 12px; margin-bottom: 20px;">Generated {gen_date}</div>
                                 
