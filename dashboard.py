@@ -500,6 +500,9 @@ if not df.empty:
                             if 'bucket' in df.columns and 'debit_value' in df.columns:
                                 mail_debit = pd.to_numeric(df['debit_value'], errors='coerce').fillna(0)
                                 df['_temp_mail_debit'] = mail_debit
+                                df['Ageing_0_2'] = ((ageing_series >= 0) & (ageing_series <= 2)).astype(int)
+                                df['Ageing_3_5'] = ((ageing_series >= 3) & (ageing_series <= 5)).astype(int)
+                                df['Ageing_5_plus'] = (ageing_series > 5).astype(int)
                                 b_grp = df.groupby('bucket').agg(
                                     Shipments=('bucket', 'count'),
                                     Ageing_0_2=('Ageing_0_2', 'sum'),
