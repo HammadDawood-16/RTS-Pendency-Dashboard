@@ -229,6 +229,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### 📧 Mail Configuration")
+
     mail_to = st.text_input(
         "Mail To",
         value=default_to,
@@ -499,12 +500,21 @@ if not df.empty:
                             if 'bucket' in df.columns and 'debit_value' in df.columns:
                                 mail_debit = pd.to_numeric(df['debit_value'], errors='coerce').fillna(0)
                                 df['_temp_mail_debit'] = mail_debit
-                                b_grp = df.groupby('bucket').agg(Shipments=('bucket', 'count'), Debit=('_temp_mail_debit', 'sum')).sort_values('Shipments', ascending=False)
+                                b_grp = df.groupby('bucket').agg(
+                                    Shipments=('bucket', 'count'),
+                                    Ageing_0_2=('Ageing_0_2', 'sum'),
+                                    Ageing_3_5=('Ageing_3_5', 'sum'),
+                                    Ageing_5_plus=('Ageing_5_plus', 'sum'),
+                                    Debit=('_temp_mail_debit', 'sum')
+                                ).sort_values('Shipments', ascending=False)
                                 for b_name, b_row in b_grp.iterrows():
                                     bucket_rows += f'''
                                     <tr style="border-bottom: 1px solid #eee;">
                                         <td style="padding: 10px 5px;">{b_name}</td>
                                         <td style="padding: 10px 5px; text-align: right;">{b_row['Shipments']:,}</td>
+                                        <td style="padding: 10px 5px; text-align: right;">{int(b_row['Ageing_0_2']):,}</td>
+                                        <td style="padding: 10px 5px; text-align: right;">{int(b_row['Ageing_3_5']):,}</td>
+                                        <td style="padding: 10px 5px; text-align: right; color: #d32f2f;">{int(b_row['Ageing_5_plus']):,}</td>
                                         <td style="padding: 10px 5px; text-align: right;">{format_indian_currency(b_row['Debit'])}</td>
                                     </tr>
                                     '''
@@ -514,13 +524,22 @@ if not df.empty:
                             if 'current_hub' in df.columns and 'debit_value' in df.columns:
                                 mail_debit = pd.to_numeric(df['debit_value'], errors='coerce').fillna(0)
                                 df['_temp_mail_debit'] = mail_debit
-                                h_grp = df.groupby('current_hub').agg(Shipments=('current_hub', 'count'), Debit=('_temp_mail_debit', 'sum')).sort_values('Debit', ascending=False).head(5)
+                                h_grp = df.groupby('current_hub').agg(
+                                    Shipments=('current_hub', 'count'),
+                                    Ageing_0_2=('Ageing_0_2', 'sum'),
+                                    Ageing_3_5=('Ageing_3_5', 'sum'),
+                                    Ageing_5_plus=('Ageing_5_plus', 'sum'),
+                                    Debit=('_temp_mail_debit', 'sum')
+                                ).sort_values('Debit', ascending=False).head(5)
                                 for i, (h_name, h_row) in enumerate(h_grp.iterrows(), 1):
                                     hub_rows += f'''
                                     <tr style="border-bottom: 1px solid #eee;">
                                         <td style="padding: 10px 5px; color: #888;">{i}</td>
                                         <td style="padding: 10px 5px; font-weight: bold;">{h_name}</td>
                                         <td style="padding: 10px 5px; text-align: right;">{h_row['Shipments']:,}</td>
+                                        <td style="padding: 10px 5px; text-align: right;">{int(h_row['Ageing_0_2']):,}</td>
+                                        <td style="padding: 10px 5px; text-align: right;">{int(h_row['Ageing_3_5']):,}</td>
+                                        <td style="padding: 10px 5px; text-align: right; color: #d32f2f;">{int(h_row['Ageing_5_plus']):,}</td>
                                         <td style="padding: 10px 5px; text-align: right;">{format_indian_currency(h_row['Debit'])}</td>
                                     </tr>
                                     '''
@@ -528,7 +547,7 @@ if not df.empty:
                             html_content = f'''
                             <html>
                             <body style="font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; color: #333; padding: 20px;">
-                                <div style="font-size: 12px; font-weight: bold; color: #d32f2f; letter-spacing: 1px; text-transform: uppercase;">SHADOWFAX &bull; RTS LOSS SNAPSHOT</div>
+                                <div style="font-size: 12px; font-weight: bold; color: #d32f2f; letter-spacing: 1px; text-transform: uppercase;">SHADOWFAX &bull; RTS PENDENCY SNAPSHOT</div>
                                 <h2 style="margin-top: 5px; margin-bottom: 5px;">Shadowfax - RTS Pendency Snapshot</h2>
                                 <div style="color: #888; font-size: 12px; margin-bottom: 20px;">Generated {gen_date}</div>
                                 
@@ -541,6 +560,9 @@ if not df.empty:
                                     <tr style="background-color: #f9f9f9; border-bottom: 2px solid #eee; text-align: left; font-size: 12px; color: #666;">
                                         <th style="padding: 10px 5px; font-weight: normal;">BUCKET</th>
                                         <th style="padding: 10px 5px; font-weight: normal; text-align: right;">COUNT</th>
+                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">0-2 DAYS</th>
+                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">3-5 DAYS</th>
+                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">5+ DAYS</th>
                                         <th style="padding: 10px 5px; font-weight: normal; text-align: right;">DEBIT</th>
                                     </tr>
                                     {bucket_rows}
@@ -552,6 +574,9 @@ if not df.empty:
                                         <th style="padding: 10px 5px; font-weight: normal;">#</th>
                                         <th style="padding: 10px 5px; font-weight: normal;">HUB</th>
                                         <th style="padding: 10px 5px; font-weight: normal; text-align: right;">OPEN</th>
+                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">0-2 DAYS</th>
+                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">3-5 DAYS</th>
+                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">5+ DAYS</th>
                                         <th style="padding: 10px 5px; font-weight: normal; text-align: right;">OPEN DEBIT</th>
                                     </tr>
                                     {hub_rows}
