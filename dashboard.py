@@ -291,6 +291,7 @@ if not df.empty:
             ("Hub Name", "current_hub"),
             ("Hub Type", "Hub Type"),
             ("State Head", "State Head"),
+            ("LM State Head", "LM State Head"),
             ("SZM", "SZM"),
             ("CT", "CT"),
             ("POD", "POD Zone"),
@@ -317,8 +318,8 @@ if not df.empty:
             mask = df.astype(str).apply(lambda col: col.str.contains(universal_search, case=False, na=False, regex=False)).any(axis=1)
             df = df[mask]
         
-        # Distribute the 8 filters cleanly across 8 columns (side by side)
-        cols = st.columns(8)
+        # Distribute the filters cleanly across columns (side by side)
+        cols = st.columns(len(filter_configs))
         
         # Bulletproof Callbacks defined OUTSIDE the loop
         def toggle_all(cb_key, s_key, current_options, label):
@@ -575,11 +576,11 @@ if not df.empty:
                                     <tr style="background-color: #f9f9f9; border-bottom: 2px solid #eee; text-align: left; font-size: 12px; color: #666;">
                                         <th style="padding: 10px 5px; font-weight: normal;">#</th>
                                         <th style="padding: 10px 5px; font-weight: normal;">HUB</th>
-                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">OPEN</th>
+                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">COUNT</th>
                                         <th style="padding: 10px 5px; font-weight: normal; text-align: right;">0-2 DAYS</th>
                                         <th style="padding: 10px 5px; font-weight: normal; text-align: right;">3-5 DAYS</th>
                                         <th style="padding: 10px 5px; font-weight: normal; text-align: right;">5+ DAYS</th>
-                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">OPEN DEBIT</th>
+                                        <th style="padding: 10px 5px; font-weight: normal; text-align: right;">DEBIT</th>
                                     </tr>
                                     {hub_rows}
                                 </table>
