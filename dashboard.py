@@ -608,7 +608,7 @@ if not df.empty:
                             # Compress CSV to ZIP in memory
                             zip_buffer = io.BytesIO()
                             with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                                zip_file.writestr(f'RTS_Pendency_{datetime.date.today().strftime("%d-%b-%Y")}.csv', csv_bytes.encode('utf-8'))
+                                zip_file.writestr(f'RTS_Pendency_{datetime.date.today().strftime("%d-%b-%Y")}.csv', csv_bytes)
                             
                             zip_bytes = zip_buffer.getvalue()
                             zip_size_mb = len(zip_bytes) / (1024 * 1024)
