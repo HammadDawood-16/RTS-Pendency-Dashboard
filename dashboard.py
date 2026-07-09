@@ -34,25 +34,50 @@ st.markdown("""
     div[data-baseweb="input"]:focus-within {
         border-color: #1a7b6b !important;
     }
-    /* Filter Pills (match Mail/CSV color but keep boxy shape) */
-    div[data-testid="stPopover"] button[kind="secondary"] {
-        border-radius: 8px !important; /* Keep it boxy/slightly rounded */
+    /* UNIFIED GLOBAL FILTERS SECTION (Expander, Search, Buttons) */
+    
+    /* 1. Expander Outer Box & Header Text */
+    div[data-testid="stExpander"] > details {
+        border: 2px solid #1a7b6b !important;
+        border-radius: 8px !important;
+    }
+    div[data-testid="stExpander"] summary p {
+        color: #1a7b6b !important;
+        font-weight: bold !important;
+    }
+    div[data-testid="stExpander"] summary svg {
+        fill: #1a7b6b !important;
+        color: #1a7b6b !important;
+    }
+
+    /* 2. Universal Search Bar */
+    div[data-testid="stExpander"] div[data-baseweb="input"] {
+        border: 2px solid #1a7b6b !important;
+        border-radius: 8px !important;
+    }
+    div[data-testid="stExpander"] div[data-baseweb="input"]:focus-within {
+        box-shadow: 0 0 0 1px #1a7b6b !important;
+    }
+
+    /* 3. All Buttons inside Expander (Reset button AND Filter Popover pills) */
+    div[data-testid="stExpander"] button[kind="secondary"] {
+        border-radius: 8px !important; /* Keep boxy shape */
         border: 2px solid #1a7b6b !important;
         background-color: transparent !important;
         color: #1a7b6b !important;
     }
-    div[data-testid="stPopover"] button[kind="secondary"]:hover,
-    div[data-testid="stPopover"] button[kind="secondary"]:active,
-    div[data-testid="stPopover"] button[aria-expanded="true"] {
+    div[data-testid="stExpander"] button[kind="secondary"]:hover,
+    div[data-testid="stExpander"] button[kind="secondary"]:active,
+    div[data-testid="stExpander"] button[aria-expanded="true"] {
         background-color: #1a7b6b !important;
         color: white !important;
     }
-    div[data-testid="stPopover"] button[kind="secondary"]:hover *,
-    div[data-testid="stPopover"] button[kind="secondary"]:active *,
-    div[data-testid="stPopover"] button[aria-expanded="true"] * {
+    div[data-testid="stExpander"] button[kind="secondary"]:hover *,
+    div[data-testid="stExpander"] button[kind="secondary"]:active *,
+    div[data-testid="stExpander"] button[aria-expanded="true"] * {
         color: white !important;
     }
-    div[data-testid="stPopover"] button[kind="secondary"] * {
+    div[data-testid="stExpander"] button[kind="secondary"] * {
         color: inherit !important;
     }
 
