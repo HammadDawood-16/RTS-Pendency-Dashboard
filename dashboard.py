@@ -197,7 +197,7 @@ st.markdown("""
         opacity: 0.8 !important;
         text-align: center !important;
         font-weight: bold !important;
-        color: #1a7b6b !important; /* Unified green text */
+        color: inherit !important;
     }
     
     /* --- METRIC NUMBER STYLING --- */
@@ -228,7 +228,7 @@ st.markdown("""
         line-height: normal !important;
         margin: 0 !important;
         font-weight: 900 !important;
-        color: #1a7b6b !important; /* Unified green text */
+        color: inherit !important;
     }
     /* 4. Underline the text only when hovering the parent pill */
     div[data-testid="stVerticalBlockBorderWrapper"]:hover button[kind="primary"] p,
