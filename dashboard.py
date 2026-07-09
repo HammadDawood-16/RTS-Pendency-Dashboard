@@ -210,7 +210,18 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📦 RTS Pendency Dashboard")
+# Embedded Logo
+img_html = '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPAAAADwCAMAAAAJixmgAAAAwFBMVEUAinHV0iYAiXIAh3MAh3LY0yPX0yTZ1CAAhXQAim/b1R4AjWzV0yAAhXIAg3QAjmwAkGrIzijByyvO0CWOtE0AkWmpwTufvEPQzys4mGR4rVKrwjqStkrAzCjKzyUllGe7yTCGs0uAr1C1xjWEqVx5pV9pomCauUhYn2BMnGIUlGdrqlNhpldQoFwhkmpko12WtU5Hn15Pm2M1lWeKrVeArlSbvEG6xTuMsVFPn1+mvEaZu0N5qVgol2RkqFRNmGeGn/EFAAAG9UlEQVR4nO2caXvaOhCFzdiWwMgJNgRCIOCENqyBpDRplqb3//+ra0izGS+SwbKtzvsdPzpodDSjTdMQBEEQBEEQBEEQBEEQBEEQBEEQBEEQBEEQBEEQBEEQBEEQBEEQBEGKABi6YUDerZAGVBvfWuOH71D9NzQb9U7Foj6nT1fGP6BZ77q08gplzfHEttXWDDPXrHxA6aD/aOgKa661aeULhLLz1rSmg5qi4bFZ2YHQptfq1pSMbbtFdwW/ah5dqqi51jZDBfuYtNm7HNbUGs9QH5EowRvNpNk7m4FKmmN6+F1ze36iK6PZ7oeP4UBstxcnthq2rZ+xRMEbzdagd90wFNAM3ZBpKUKz01FAMyydONf6AqGW21nVS6651ktwrR3N46tamUtJHtcKaGbueKKXNiXhdK2g5tObyVE5NfO7VlCzc9Mto2ZYDtII3mqm5611CUvJpFwrvp+9uy6Uq5/tsaBrBTX7Jca6TGVVGtf6isma7culVpbYhpc99W41m4P2fFiO8Qwn/LlWrGY26PglRhlyEqFcK0nzdaPwZZXd2cu1Apqpc397XGzN+p8DCvZt27Tc+8fjApcYMDuo4MrfEuOxDgXVDI20uVasZur1JwUtq+BgrhXQzNzWDyig5uohXSuo2Xv4YRdtetYXVkaCXzW7D+ujQmmGWYaCt5pN52ejQJrhJAPXCmq2vLtlYVJPe48KUUAz690dF2MXw37OyrW+slnR/70sgGbI0rUCmv10e77M27ehK03wq+bnRSPXsgpO3D0rRMGf+1NVvmUV9PYRbFrMdSwq9InN9Hx/W6/mpNnYI9cyK+3r7vFseuaKruib1H2+reeyGgar1IOYjm794ehj1y9EI3s7PfenNfndDD/S9rDZO9bfPqKfpVjT35RVLemaU7sWcWbGx2eMi1QLoP54Hl1O5ZaS8CudYGtuf/4KpF3jJrTyy0/D5AlO6VrEPfnSSNCCx9wEvmW5KyOqfQcnpWuZ94EmQsPdY+OGrezw5mUgeJJq9FmrYBTCsJl+SidsKiuq/Z5J0U7i7g47vbuHYtqrSRKs6Wlci45DOsRY7LFX1ezK6mIjjb+ySVjzjIc90rZLPeSLWQC/xV2LuPXQ/jBEj418QFuybAuuxBtJ++HxBztnsIsouC6+hxge0duPeSknJ3ohbWKyPeHM34u0VGiktOrmo7RsSxd2LdqKToz0dNOxOQp3hSwwvgm7VlyWYKeanNi1LJNOkWsRLzbztS/FFbMLqUXiqVjr6EN8bxh90X/Q1ytTcFUwuTSH8a2DWkdslas5lxfPGwTPaxEvqXnQEJmcTOdRrl7ftYQEJ0W0tjnVyF8rUmctWa8GU6ExZ3FMIPoL7+RkjWQud/zFEFmCI6Mqxyfta74/0XrKY7H2SCS5pD+5ItA+4xkn9OYoa3GhjYu4lRcK40yJjIvEjxI254mWw6MLuJbZ41xvg1rSVqzpTKUVDIG2CbgW/c3rqdAYxSqmXle2Pb9j8wtu8if5MIybjmk7IX/Jkuo5r2vRJ4EVZHiJdkP6LK882oX/Rg9biYShHjU5+dlzrsfW9DtOwcRZCrXTnoeWnubgj7ythjC4XcvsCPpqNWxyMp3bnOz5HeA8r8WEN4H03b2rPO35DYi9Lv5O2IZD0pfrwcmJ9ob5xvMGnc+1hCNa21ROXycnOq7lflqL27Uil2fjgLXzSTHtF+JUMd89ROKlKuX06eBNMbEWedvVK1DncS3zOV2ury89SgkhlDr/FUOvptV4XIul3eGD6mTsnDrjVXHu7fFUiDEbDomAsaEwcvnuIUrc/skeHtdKHdFFhOP2NBnlny8ckOQ3H6wzhSKap0JkLwpFNIdrmaPcM/6DkuhaVPIGUNYkvlQzyHEJKhMS3tcye4rpTdpDtBaqCdZjN+6Jo1pEbw6HxkV0WzW9Ca5lLZRKs7bE5VrEbSjXw1o1ZvOLdtTTq+nzaNcS23AoCTEv1RAnz42grIi5PR16HlwBInMttnPDQQkiXYs4RVg7PzyRL9XQG/Um4Q3wEiVY2h0buUS5FnHU7GA/psNdi94oOAlvqd6HxrSlXKH0RrhrkfN8To9JAF7CTmTQG6WWZz8DjbAK0crhuKssjJAKMeGGQ7mxO7uC6YOyEe3H9PXuIKZrdSNag+6OTZu/FNYb9uYDu1M169iy++ZDU+WIDnnzwWwr7NFayJsPjPs8eDkJvlQjenq2dATffDDbanfwzhMI4qdnywasP6fTEl/XyA1jzt4Vm+fKVsKf0OfsNaqJdT77B/T6FcTyqckoY85dQV+JPjhQNabfr4a26gb9GSjwu+cIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiAIgiDIgfgfDcNx+ZG9I8YAAAAASUVORK5CYII=" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; margin-right: 15px; background-color: #00897b; border: 2px solid #4CAF50;">'
+
+st.markdown(f'''
+<div style="display: flex; align-items: center; margin-bottom: 20px;">
+    {img_html}
+    <div style="display: flex; flex-direction: column; justify-content: center;">
+        <div style="color: #4CAF50; font-weight: bold; font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px;">LM Network</div>
+        <h1 style="margin: 0; padding: 0; font-size: 34px; font-weight: 700; line-height: 1.2;">RTS Pendency Dashboard</h1>
+    </div>
+</div>
+''', unsafe_allow_html=True)
 
 with st.sidebar:
     # Safely get the Cloud URL
