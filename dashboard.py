@@ -151,6 +151,8 @@ st.markdown("""
 
     /* BRUTE-FORCE METRIC CONTAINER (PILL) SIZING */
     div[data-testid="stVerticalBlockBorderWrapper"] {
+        border: 2px solid #1a7b6b !important; /* Unified Green Border */
+        background-color: transparent !important;
         height: fit-content !important;    /* Shrink wrap to text height */
         min-height: 0 !important;
         width: fit-content !important;     /* Shrink wrap the text strictly */
@@ -195,6 +197,7 @@ st.markdown("""
         opacity: 0.8 !important;
         text-align: center !important;
         font-weight: bold !important;
+        color: #1a7b6b !important; /* Unified green text */
     }
     
     /* --- METRIC NUMBER STYLING --- */
@@ -225,7 +228,7 @@ st.markdown("""
         line-height: normal !important;
         margin: 0 !important;
         font-weight: 900 !important;
-        color: inherit !important;
+        color: #1a7b6b !important; /* Unified green text */
     }
     /* 4. Underline the text only when hovering the parent pill */
     div[data-testid="stVerticalBlockBorderWrapper"]:hover button[kind="primary"] p,
@@ -235,7 +238,15 @@ st.markdown("""
     }
     /* Add a subtle hover effect to the entire metric pill */
     div[data-testid="stVerticalBlockBorderWrapper"]:hover {
-        background-color: rgba(128, 128, 128, 0.1) !important; /* Theme-agnostic hover for both Dark and Light mode */
+        background-color: #1a7b6b !important; /* Unified green hover background */
+    }
+    
+    /* Invert text to white on hover */
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover p.metric-label,
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover button[kind="primary"] p,
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover button[kind="primary"] span,
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover button[kind="primary"] div {
+        color: white !important;
     }
 
     /* TIGHTEN CUSTOM GRID ROWS (Scoped to Tabs to protect filters) */
