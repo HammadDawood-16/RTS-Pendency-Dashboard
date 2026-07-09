@@ -34,6 +34,24 @@ st.markdown("""
     div[data-baseweb="input"]:focus-within {
         border-color: #1a7b6b !important;
     }
+    /* Filter Pills (match Mail/CSV color but keep boxy shape) */
+    div[data-testid="stPopover"] > button {
+        border-radius: 8px !important; /* Keep it boxy/slightly rounded instead of 50px */
+        border: 1px solid #1a7b6b !important;
+        background-color: transparent !important;
+        color: #1a7b6b !important;
+    }
+    div[data-testid="stPopover"] > button:hover {
+        background-color: #1a7b6b !important;
+        color: white !important;
+    }
+    div[data-testid="stPopover"] > button:hover * {
+        color: white !important;
+    }
+    div[data-testid="stPopover"] > button * {
+        color: inherit !important;
+    }
+
     /* 4. Popover & Tertiary Buttons (hover/active text and border) */
     div[data-testid="stPopover"] button[aria-expanded="true"],
     button[kind="tertiary"]:hover,
