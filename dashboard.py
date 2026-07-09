@@ -604,33 +604,43 @@ if not df.empty:
                             import zipfile
                             
                             csv_bytes = generate_csv(df)
+                            csv_size_mb = len(csv_bytes) / (1024 * 1024)
                             
-                            # Compress CSV to ZIP in memory
-                            zip_buffer = io.BytesIO()
-                            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                                zip_file.writestr(f'RTS_Pendency_{datetime.date.today().strftime("%d-%b-%Y")}.csv', csv_bytes)
-                            
-                            zip_bytes = zip_buffer.getvalue()
-                            zip_size_mb = len(zip_bytes) / (1024 * 1024)
-                            
-                            if zip_size_mb < 20:
+                            if csv_size_mb < 15:
                                 msg.add_alternative(html_content, subtype='html')
                                 msg.add_attachment(
-                                    zip_bytes,
-                                    maintype='application',
-                                    subtype='zip',
-                                    filename=f'RTS_Pendency_{datetime.date.today().strftime("%d-%b-%Y")}.zip'
+                                    csv_bytes,
+                                    maintype='text',
+                                    subtype='csv',
+                                    filename=f'RTS_Pendency_{datetime.date.today().strftime("%d-%b-%Y")}.csv'
                                 )
                             else:
-                                html_notice = f'''
-                                <div style="margin-top: 20px; padding: 10px; background-color: #fff3e0; border: 1px dashed #ff9800; color: #e65100; font-size: 12px; text-align: center;">
-                                    ⚠️ <strong>Attachment skipped:</strong> The compressed dataset is still too large ({zip_size_mb:.1f} MB) for email. Please download it directly from the dashboard.
-                                </div>
-                                </body>
-                                </html>
-                                '''
-                                html_content = html_content.replace('</body>\n                            </html>', html_notice.strip())
-                                msg.add_alternative(html_content, subtype='html')
+                                # Compress CSV to ZIP in memory since it's too large
+                                zip_buffer = io.BytesIO()
+                                with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                                    zip_file.writestr(f'RTS_Pendency_{datetime.date.today().strftime("%d-%b-%Y")}.csv', csv_bytes)
+                                
+                                zip_bytes = zip_buffer.getvalue()
+                                zip_size_mb = len(zip_bytes) / (1024 * 1024)
+                                
+                                if zip_size_mb < 20:
+                                    msg.add_alternative(html_content, subtype='html')
+                                    msg.add_attachment(
+                                        zip_bytes,
+                                        maintype='application',
+                                        subtype='zip',
+                                        filename=f'RTS_Pendency_{datetime.date.today().strftime("%d-%b-%Y")}.zip'
+                                    )
+                                else:
+                                    html_notice = f'''
+                                    <div style="margin-top: 20px; padding: 10px; background-color: #fff3e0; border: 1px dashed #ff9800; color: #e65100; font-size: 12px; text-align: center;">
+                                        ⚠️ <strong>Attachment skipped:</strong> The compressed dataset is still too large ({zip_size_mb:.1f} MB) for email. Please download it directly from the dashboard.
+                                    </div>
+                                    </body>
+                                    </html>
+                                    '''
+                                    html_content = html_content.replace('</body>\n                            </html>', html_notice.strip())
+                                    msg.add_alternative(html_content, subtype='html')
                             
                             # 3. SEND EMAIL
                             with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
