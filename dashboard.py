@@ -42,12 +42,12 @@ st.markdown("""
         border-radius: 8px !important;
     }
     div[data-testid="stExpander"] summary p {
-        color: #1a7b6b !important;
+        color: white !important;
         font-weight: bold !important;
     }
     div[data-testid="stExpander"] summary svg {
-        fill: #1a7b6b !important;
-        color: #1a7b6b !important;
+        fill: white !important;
+        color: white !important;
     }
 
     /* 2. Universal Search Bar */
@@ -64,7 +64,7 @@ st.markdown("""
         border-radius: 8px !important; /* Keep boxy shape */
         border: 2px solid #1a7b6b !important;
         background-color: transparent !important;
-        color: #1a7b6b !important;
+        color: white !important;
     }
     div[data-testid="stExpander"] button[kind="secondary"]:hover,
     div[data-testid="stExpander"] button[kind="secondary"]:active,
@@ -86,11 +86,11 @@ st.markdown("""
     button[kind="tertiary"]:hover,
     button[kind="tertiary"]:active {
         border-color: #1a7b6b !important;
-        color: #1a7b6b !important;
+        color: white !important;
     }
     button[kind="tertiary"]:hover *,
     button[kind="tertiary"]:active * {
-        color: #1a7b6b !important;
+        color: white !important;
     }
 
     /* Hide the marker's container to fix vertical alignment */
@@ -108,7 +108,7 @@ st.markdown("""
         font-size: 16px !important;
         border: 2px solid #1a7b6b !important;
         background-color: transparent !important;
-        color: #1a7b6b !important;
+        color: white !important;
         text-decoration: none !important;
         display: inline-flex !important;
         align-items: center !important;
