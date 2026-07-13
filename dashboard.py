@@ -806,11 +806,20 @@ if not df.empty:
     hier_df['Ageing_5_plus'] = (hier_df['Ageing Numeric'] > 5).astype(int)
     hier_df['Debit_5_plus'] = hier_df['Ageing_5_plus'] * hier_df['Debit Value Numeric']
     
+    # --- MAP ATTEMPT METRICS ---
+    hier_df['Attempt Numeric'] = pd.to_numeric(hier_df['attempt_number'], errors='coerce').fillna(0)
+    hier_df['Attempt_0_1'] = ((hier_df['Attempt Numeric'] >= 0) & (hier_df['Attempt Numeric'] <= 1)).astype(int)
+    hier_df['Attempt_2_3'] = ((hier_df['Attempt Numeric'] >= 2) & (hier_df['Attempt Numeric'] <= 3)).astype(int)
+    hier_df['Attempt_4_plus'] = (hier_df['Attempt Numeric'] > 3).astype(int)
+    
+    # --- MAP LIQUIDATED ---
+    hier_df['Is_Liquidated'] = (hier_df['state_change_remarks'].str.upper() == 'LIQUIDATED').astype(int)
+    
     def get_sort_label(val_str, col, cur_col, cur_asc):
         return val_str
 
     # --- TABS ---
-    tab_overview, tab_shszmpod, tab_hubs = st.tabs(["Overview", "State Head/SZM/POD", "Hubs"])
+    tab_overview, tab_shszmpod, tab_hubs, tab_sellers = st.tabs(["Overview", "State Head/SZM/POD", "Hubs", "Sellers"])
     
     with tab_overview:
         # 2. Display as Broad Pills in 7 Columns
@@ -1832,3 +1841,80 @@ if not df.empty:
                                 st.button(f"{format_indian_currency(hsh_d5p)}", key=f"btn_hub_lvl2_d5p_val_{ht_name}_{hsh_hub}_{hsh_sh}", type="tertiary", on_click=toggle_hub_lvl2_sort, args=('Debit_5_plus',))
                     st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
         
+    with tab_sellers:
+        st.subheader("Seller Level Summary")
+        
+        # --- SELLER LEVEL SORTING STATE ---
+        if "seller_sort_col" not in st.session_state:
+            st.session_state.seller_sort_col = "Shipments"
+        if "seller_sort_asc" not in st.session_state:
+            st.session_state.seller_sort_asc = False
+            
+        def toggle_seller_sort(col):
+            if st.session_state.seller_sort_col == col:
+                st.session_state.seller_sort_asc = not st.session_state.seller_sort_asc
+            else:
+                st.session_state.seller_sort_col = col
+                st.session_state.seller_sort_asc = False
+                
+        with st.container(border=True):
+            st.markdown("<div class='summary-table-marker'></div>", unsafe_allow_html=True)
+            st.markdown("<div class='sticky-header-marker'></div>", unsafe_allow_html=True)
+            sel_head1, sel_head2, sel_head_lq, sel_head3, sel_head4, sel_head5, sel_head6 = st.columns([2.6, 1.0, 0.6, 0.7, 0.7, 0.7, 1.0])
+            
+            with sel_head1:
+                st.button(f"👤 Seller Name", key="sort_seller_name", type="tertiary")
+            with sel_head2:
+                st.button(f"📦 Shipments", on_click=toggle_seller_sort, args=('Shipments',), key="sort_seller_ship", type="tertiary")
+            with sel_head_lq:
+                st.button(f"LQ", on_click=toggle_seller_sort, args=('LQ',), key="sort_seller_lq", type="tertiary")
+            with sel_head3:
+                st.button(f"🟢 0-1", on_click=toggle_seller_sort, args=('Attempt_0_1',), key="sort_seller_a01", type="tertiary")
+            with sel_head4:
+                st.button(f"🟡 2-3", on_click=toggle_seller_sort, args=('Attempt_2_3',), key="sort_seller_a23", type="tertiary")
+            with sel_head5:
+                st.button(f"🔴 3+", on_click=toggle_seller_sort, args=('Attempt_4_plus',), key="sort_seller_a4p", type="tertiary")
+            with sel_head6:
+                st.button(f"💸 Debit", on_click=toggle_seller_sort, args=('Total_Debit',), key="sort_seller_td", type="tertiary")
+            st.markdown("<hr style='margin: 8px 0;'/>", unsafe_allow_html=True)
+            
+            with st.container(height=600, border=True):
+                st.markdown("<div class='scroll-table-marker'></div>", unsafe_allow_html=True)
+                seller_groups = hier_df.groupby('seller_name').agg(
+                    Shipments=('seller_name', 'count'),
+                    LQ=('Is_Liquidated', 'sum'),
+                    Attempt_0_1=('Attempt_0_1', 'sum'),
+                    Attempt_2_3=('Attempt_2_3', 'sum'),
+                    Attempt_4_plus=('Attempt_4_plus', 'sum'),
+                    Total_Debit=('Debit Value Numeric', 'sum')
+                ).reset_index()
+                
+                seller_groups = seller_groups.sort_values(st.session_state.seller_sort_col, ascending=st.session_state.seller_sort_asc)
+                
+                display_sellers = seller_groups.head(50)
+                
+                for _, sel_row in display_sellers.iterrows():
+                    sel_name = str(sel_row['seller_name'])
+                    sel_ship = sel_row['Shipments']
+                    sel_lq = sel_row['LQ']
+                    sel_a01 = sel_row['Attempt_0_1']
+                    sel_a23 = sel_row['Attempt_2_3']
+                    sel_a4p = sel_row['Attempt_4_plus']
+                    sel_td = sel_row['Total_Debit']
+                    
+                    sc1, sc2, sc_lq, sc3, sc4, sc5, sc6 = st.columns([2.6, 1.0, 0.6, 0.7, 0.7, 0.7, 1.0])
+                    with sc1:
+                        if st.button(f"{sel_name}", key=f"btn_sel_name_{sel_name}", type="tertiary"):
+                            show_data_preview(f"{sel_name}", hier_df[hier_df['seller_name'] == sel_name])
+                    with sc2:
+                        st.button(f"{sel_ship:,}", key=f"btn_sel_ship_{sel_name}", type="tertiary")
+                    with sc_lq:
+                        st.button(f"{sel_lq:,}", key=f"btn_sel_lq_{sel_name}", type="tertiary")
+                    with sc3:
+                        st.button(f"{sel_a01:,}", key=f"btn_sel_a01_{sel_name}", type="tertiary")
+                    with sc4:
+                        st.button(f"{sel_a23:,}", key=f"btn_sel_a23_{sel_name}", type="tertiary")
+                    with sc5:
+                        st.button(f"{sel_a4p:,}", key=f"btn_sel_a4p_{sel_name}", type="tertiary")
+                    with sc6:
+                        st.button(f"{format_indian_currency(sel_td)}", key=f"btn_sel_td_{sel_name}", type="tertiary")
