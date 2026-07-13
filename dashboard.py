@@ -781,7 +781,7 @@ if not df.empty:
 
 
     # Prepare the dataset for hierarchy (Safely handle missing columns)
-    hier_df = df.copy()
+    hier_df = df
     hier_df['State Head'] = hier_df.get('State Head', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
     hier_df['SZM'] = hier_df.get('SZM', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
     hier_df['current_hub'] = hier_df.get('current_hub', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
@@ -945,7 +945,7 @@ if not df.empty:
                 st.subheader("Orders by Bucket")
                 
                 # Apply cross-filtering from the Donut Chart!
-                bar_df = df.copy()
+                bar_df = df
                 # An empty list means no selection was made (default Altair state = all items active)
                 if len(selected_flags) > 0:
                     bar_df = bar_df[bar_df['flag2'].isin(selected_flags)]
