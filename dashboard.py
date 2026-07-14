@@ -375,7 +375,7 @@ with st.sidebar:
 # so the downloaded files/drafts reflect the applied global filters.
 btn_container = st.container()
 
-@st.cache_data(ttl=900) # Cache expires every 15 minutes (900 seconds) to fetch fresh cloud data
+@st.cache_data(max_entries=1) # Cache indefinitely. max_entries=1 prevents memory leaks.
 def load_data(file_source, mtime=None):
     """Loads the processed data and caches it for performance."""
     try:
@@ -389,9 +389,9 @@ def load_data(file_source, mtime=None):
             # Explicitly read the 'Processed Data' tab where the script writes the output
             df = pd.read_excel(file_source, sheet_name="Processed Data", engine="calamine")
             
-        # Ensure PyArrow compatibility by converting mixed-type object columns to strings
-        for col in df.select_dtypes(include=['object']).columns:
-            df[col] = df[col].astype(str)
+        # Ensure PyArrow compatibility and radically reduce memory usage by converting string columns to categories
+        for col in df.select_dtypes(include=['object', 'string']).columns:
+            df[col] = df[col].astype('category')
             
         return df
     except Exception as e:
