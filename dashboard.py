@@ -389,9 +389,17 @@ def load_data(file_source, mtime=None):
             # Explicitly read the 'Processed Data' tab where the script writes the output
             df = pd.read_excel(file_source, sheet_name="Processed Data", engine="calamine")
             
+        # Ensure missing columns are gracefully handled
+        if 'POD Zone' not in df.columns and 'POD Mapping' in df.columns:
+            df['POD Zone'] = df['POD Mapping']
+            
+        for c in ['POD Zone', 'LM State Head', 'flag2', 'bucket', 'order_status', 'State Head', 'SZM', 'current_hub', 'Hub Type']:
+            if c not in df.columns:
+                df[c] = 'Unknown'
+
         # Ensure PyArrow compatibility and radically reduce memory usage by converting string columns to categories
         for col in df.select_dtypes(include=['object', 'string']).columns:
-            df[col] = df[col].astype('category')
+            df[col] = df[col].fillna('Unknown').astype(str).astype('category')
             
         return df
     except Exception as e:
@@ -481,9 +489,8 @@ if not df.empty:
                 col_name = "POD Mapping"
                 
             if col_name in df.columns:
-                # Convert items to string to allow proper sorting
-                df[col_name] = df[col_name].fillna('Unknown').astype(str)
-                options = sorted(df[col_name].unique().tolist())
+                # Options are already strings and NAs are filled in load_data
+                options = sorted([str(x) for x in df[col_name].unique().tolist()])
                 with cols[i]:
                     with st.popover(label, use_container_width=True):
                         # Sticky Search Input
@@ -782,19 +789,8 @@ if not df.empty:
 
     # Prepare the dataset for hierarchy (Safely handle missing columns)
     hier_df = df
-    hier_df['State Head'] = hier_df.get('State Head', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
-    hier_df['SZM'] = hier_df.get('SZM', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
-    hier_df['current_hub'] = hier_df.get('current_hub', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
-    hier_df['Hub Type'] = hier_df.get('Hub Type', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
     
-    # Fallback if POD Zone is missing but POD Mapping exists
-    if 'POD Zone' not in hier_df.columns and 'POD Mapping' in hier_df.columns:
-        hier_df['POD Zone'] = hier_df['POD Mapping']
-    hier_df['POD Zone'] = hier_df.get('POD Zone', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
-    hier_df['LM State Head'] = hier_df.get('LM State Head', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
-    hier_df['flag2'] = hier_df.get('flag2', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
-    hier_df['bucket'] = hier_df.get('bucket', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
-    hier_df['order_status'] = hier_df.get('order_status', pd.Series(['Unknown'] * len(hier_df))).fillna('Unknown')
+    # Missing columns are now handled safely inside load_data during caching
     
     # Map the safely calculated debit_series from the Overview tab
     hier_df['Debit Value Numeric'] = debit_series.values
