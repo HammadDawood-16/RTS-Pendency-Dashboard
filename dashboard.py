@@ -375,7 +375,7 @@ with st.sidebar:
 # so the downloaded files/drafts reflect the applied global filters.
 btn_container = st.container()
 
-@st.cache_data(max_entries=1) # Cache indefinitely. max_entries=1 prevents memory leaks.
+@st.cache_data(ttl=900, max_entries=1) # Cache expires every 15 minutes. max_entries=1 prevents memory leaks.
 def load_data(file_source, mtime=None):
     """Loads the processed data and caches it for performance."""
     try:
